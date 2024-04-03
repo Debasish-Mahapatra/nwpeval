@@ -299,7 +299,20 @@ These examples demonstrate the versatility of the package in handling different 
 
 By providing a wide range of metrics and the flexibility to customize their computation, the package enables users to perform comprehensive evaluations of NWP models based on their specific needs and requirements.
 
+## Help
 
+The `help()` function provides a convenient way to explore the available methods in the NWP_Stats class and view their descriptions and usage instructions.
+
+Example usage:
+```python
+from nwpeval import NWP_Stats
+
+# Display help for a specific method
+help(NWP_Stats.compute_fss)
+
+# Display help for all available methods
+help(NWP_Stats)
+```
 
 For more detailed usage instructions and [Documentation](docs/NWPeval%20Documentation.md) and [examples](examples), please refer to the Examples directory.
 

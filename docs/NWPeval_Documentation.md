@@ -133,6 +133,80 @@ Once you have your data ready, you can create an instance of the `NWP_Stats` cla
 nwp_stats = NWP_Stats(obs_data, model_data)
 ```
 
+## Help
+
+```python
+help(cls)
+```
+
+This function displays the available methods in the NWP_Stats class along with their docstrings.
+
+- `cls` (class): The NWP_Stats class or any class object that contains the methods to be displayed.
+
+The `help()` function provides a convenient way to explore the available methods in the NWP_Stats class and view their descriptions and usage instructions. It iterates over all the methods in the class and prints the method names and their corresponding docstrings for methods that start with "compute_".
+
+Returns None.
+
+Example usage:
+```python
+from nwpeval import NWP_Stats
+
+# Display help for a specific method
+help(NWP_Stats.compute_fss)
+```
+
+Output:
+```
+compute_fss:
+Compute the Fractions Skill Score (FSS) for a given threshold and neighborhood size.
+
+Args:
+    threshold (float): The threshold value for binary classification.
+    neighborhood_size (int): The size of the neighborhood window.
+    dim (str, list, or None): The dimension(s) along which to compute the FSS.
+                              If None, compute the FSS over the entire data.
+
+Returns:
+    xarray.DataArray: The computed FSS values.
+```
+
+```python
+# Display help for all available methods
+help(NWP_Stats)
+```
+
+Output:
+```
+Available methods in the NWP_Stats class:
+-------------------------------------------
+compute_mae:
+Calculate the Mean Absolute Error (MAE).
+
+Args:
+    dim (str, list, or None): The dimension(s) along which to compute the MAE.
+                              If None, compute the MAE over the entire data.
+
+Returns:
+    xarray.DataArray: The computed MAE values.
+---
+compute_rmse:
+Calculate the Root Mean Square Error (RMSE).
+
+Args:
+    dim (str, list, or None): The dimension(s) along which to compute the RMSE.
+                              If None, compute the RMSE over the entire data.
+
+Returns:
+    xarray.DataArray: The computed RMSE values.
+---
+...
+```
+
+Note:
+- The `help()` function can be used to display help for a specific method by passing the method as an argument, like `help(NWP_Stats.compute_fss)`.
+- It can also be used to display help for all available methods by passing the NWP_Stats class itself, like `help(NWP_Stats)`.
+
+
 Now you are ready to compute various evaluation metrics using the methods provided by the `NWP_Stats` class.
 
 ## NWP_Stats Class
