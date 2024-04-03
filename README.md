@@ -301,7 +301,7 @@ By providing a wide range of metrics and the flexibility to customize their comp
 
 
 
-For more detailed usage instructions and examples, please refer to the Examples directory.
+For more detailed usage instructions and [Documentation](docs/NWPeval%20Documentation.md) and [examples](examples), please refer to the Examples directory.
 
 
 ## NEXT UPDATE 
