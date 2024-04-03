@@ -5,6 +5,17 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 
 
+def help(cls):
+    print("Available methods in the NWP_Stats class:")
+    print("-------------------------------------------")
+    for method_name in dir(cls):
+        if method_name.startswith("compute_"):
+            method = getattr(cls, method_name)
+            print(f"{method_name}:")
+            print(method.__doc__)
+            print("---")
+
+
 class NWP_Stats:
     def __init__(self, obs_data, model_data):
         """
