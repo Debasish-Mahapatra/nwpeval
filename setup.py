@@ -3,10 +3,10 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-with open("CHANGELOG.md", "r") as fh:
-    changelog = fh.read()
+#with open("CHANGELOG.md", "r") as fh:
+ #   changelog = fh.read()
 
-long_description += "\n\n" + changelog
+#long_description += "\n\n" + changelog
 
 setup(
     name='nwpeval',
@@ -16,14 +16,15 @@ setup(
     long_description_content_type="text/markdown",
     author='Debasish Mahapatra',
     author_email='debasish.atmos@gmail.com | debasish.mahapatra@ugent.be',
+    
     packages=find_packages(),
     install_requires=[
-        'numpy',
-        'pygrib',
-        'xarray',
-        'scipy',
-        'pandas',
-        'matplotlib',
+        'numpy>=1.20.0',
+        'pygrib>=2.1.0',
+        'xarray>=0.18.0',
+        'scipy>=1.6.0',
+        'pandas>=1.2.0',
+        'matplotlib>=3.3.0',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

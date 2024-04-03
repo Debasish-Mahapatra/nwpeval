@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4  # updated version
+      - uses: actions/checkout@v3  # updated version
       
       - name: Set up Python
-        uses: actions/setup-python@v4  # updated version
+        uses: actions/setup-python@v3  # updated version
         with:
           python-version: '3.x'
           
