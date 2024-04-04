@@ -658,29 +658,30 @@ class NWP_Stats:
     def compute_rpss(self, threshold, dim=None):
         """
         Compute the Ranked Probability Skill Score (RPSS) for a given threshold.
-        
+    
         Args:
             threshold (float): The threshold value for binary classification.
             dim (str, list, or None): The dimension(s) along which to compute the RPSS.
-                                      If None, compute the RPSS over the entire data.
-        
+                                  If None, compute the RPSS over the entire data.
+    
         Returns:
             xarray.DataArray: The computed RPSS values.
         """
         # Convert data to binary based on the threshold
         obs_binary = (self.obs_data >= threshold).astype(int)
         model_binary = (self.model_data >= threshold).astype(int)
-        
+    
         # Calculate the RPS for the model data
-        rps_model = ((model_binary.cumsum('dim_0') - obs_binary.cumsum('dim_0')) ** 2).mean()
-        
+        rps_model = ((model_binary.cumsum(dim) - obs_binary.cumsum(dim)) ** 2).mean(dim=dim)
+    
         # Calculate the RPS for the climatology (base rate)
         base_rate = obs_binary.mean(dim=dim)
-        rps_climo = ((xr.full_like(model_binary, base_rate).cumsum('dim_0') - obs_binary.cumsum('dim_0')) ** 2).mean()
-        
+        rps_climo = ((xr.full_like(model_binary, 0).cumsum(dim) - obs_binary.cumsum(dim)) ** 2).mean(dim=dim)
+        rps_climo = rps_climo + base_rate * (1 - base_rate)
+    
         # Calculate the RPSS
         rpss = 1 - rps_model / rps_climo
-        
+    
         return rpss
 
     def compute_tse(self, dim=None):
