@@ -16,7 +16,6 @@ NWPeval is a Python package designed to facilitate the evaluation and analysis o
   - Brier Skill Score (BSS)
   - Heidke Skill Score (HSS)
   - Peirce Skill Score (PSS)
-  - Gilbert Skill Score (GS)
   - Symmetric Extreme Dependency Score (SEDS)
   - Frequency Bias (FB)
   - Gilbert Skill Score (GSS)
