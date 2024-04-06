@@ -76,7 +76,7 @@ class NWP_Stats:
                 metric_values[metric] = self.compute_pss(threshold, dim)
             # elif metric == 'GS':
             #     threshold = thresholds.get('GS', 0.5)   # a mirror instance of gilbert skill score already present
-                metric_values[metric] = self.compute_gs(threshold, dim)
+            #    metric_values[metric] = self.compute_gs(threshold, dim)
             elif metric == 'SEDS':
                 threshold = thresholds.get('SEDS', 0.5)
                 metric_values[metric] = self.compute_seds(threshold, dim)
