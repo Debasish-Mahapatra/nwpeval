@@ -1,5 +1,32 @@
 # Changelog
 
+## Version 1.6.0 (2024-12-05)
+
+### New Features
+- **Modular Metrics API**: All 65 metrics are now available as standalone functions
+  - New import style: `from nwpeval import rmse, mae, fss, pod`
+  - Each metric in its own file under `nwpeval/metrics/`
+- **NWP_Stats class deprecated**: Shows deprecation warning, will be removed in v2.0
+
+### Bug Fixes
+- **FSS**: Fixed mse_ref formula (was using mean squared instead of mean of squares)
+- **MCC**: Fixed integer overflow and added range clipping to [-1, 1]
+- **EDS**: Corrected formula to use proper log ratios
+- **BSS**: Fixed climatology Brier Score calculation
+- **RPSS**: Fixed dim handling for binary case
+- **AEV**: Corrected Adjusted Explained Variance formula
+
+### Documentation
+- Updated README with new API examples
+- Rewrote documentation to prioritize new standalone functions
+- Added migration guide from NWP_Stats to standalone functions
+
+### Tests
+- Added `tests/test_all_metrics.py` - validates all 65 metrics
+- Added `tests/test_all_metrics_with_plots.py` - comprehensive test with plots
+
+---
+
 ## Version 1.5.1beta5 
 
 ### MAJOR REVISION OF CODE 
