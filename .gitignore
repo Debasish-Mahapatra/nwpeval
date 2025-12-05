@@ -1,0 +1,29 @@
+# Compiled Python files
+*.pyc
+*.pyo
+__pycache__/
+
+# Distribution and build directories
+dist/
+build/
+*.egg-info/
+
+# Virtual environment
+venv/
+env/
+.env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS files
+.DS_Store
+
+# Log files
+*.log
