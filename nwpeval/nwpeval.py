@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -17,14 +18,38 @@ def help(cls):
 
 
 class NWP_Stats:
+    """
+    DEPRECATED: Use standalone metric functions instead.
+    
+    Example:
+        # Old way (deprecated)
+        stats = NWP_Stats(obs, model)
+        result = stats.compute_rmse()
+        
+        # New way (recommended)
+        from nwpeval import rmse
+        result = rmse(obs, model)
+    """
+    
     def __init__(self, obs_data, model_data):
         """
         Initialize the NWPMetrics object with observed and modeled data.
+        
+        .. deprecated::
+            NWP_Stats is deprecated. Use standalone metric functions instead.
+            Example: `from nwpeval import rmse; rmse(obs, model)`
         
         Args:
             obs_data (xarray.DataArray): The observed data.
             model_data (xarray.DataArray): The modeled data.
         """
+        warnings.warn(
+            "NWP_Stats is deprecated and will be removed in a future version. "
+            "Use standalone metric functions instead: "
+            "`from nwpeval import rmse, mae, fss; rmse(obs, model)`",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.obs_data = obs_data
         self.model_data = model_data
 
