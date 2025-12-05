@@ -51,9 +51,8 @@ def fss(obs_data, model_data, threshold, neighborhood_size, spatial_dims=None, r
     mse = ((obs_fractions - model_fractions) ** 2).mean(dim=reduction_dim)
     
     # Calculate the reference MSE (worst case: no skill)
-    obs_fraction_mean = obs_fractions.mean(dim=reduction_dim)
-    model_fraction_mean = model_fractions.mean(dim=reduction_dim)
-    mse_ref = (obs_fraction_mean ** 2) + (model_fraction_mean ** 2)
+    # MSE_ref = mean(O^2) + mean(M^2) for the "no-skill" forecast
+    mse_ref = (obs_fractions ** 2).mean(dim=reduction_dim) + (model_fractions ** 2).mean(dim=reduction_dim)
     
     # Calculate the FSS
     return 1 - mse / mse_ref
