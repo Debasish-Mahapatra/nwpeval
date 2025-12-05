@@ -11,30 +11,46 @@ Legacy API (deprecated):
     stats.compute_rmse()
 """
 
-# Export all standalone metric functions
+# Export all standalone metric functions (65 total)
 from .metrics import (
     # Utilities
     confusion_matrix,
-    # Continuous
+    # Continuous (29)
     mae, rmse, acc, r2, nrmse, pcc, mbd,
-    # Spatial
+    tse, evs, nmse, fv, sdr, vif, mad, iqr,
+    nae, rmb, mape, wmae, ass, rss, qss,
+    lmbe, smse, gmb, sbs, aev, cosine_similarity,
+    # Spatial (1)
     fss,
-    # Categorical
-    ets, pod, far, csi, hss, pss, gss, fb, hkd, orss, seds, eds, sedi,
-    # Probabilistic
+    # Categorical (20)
+    ets, pod, far, csi, hss, pss, gss, fb, hkd, orss,
+    seds, eds, sedi, f1, mcc, ba, npv, jaccard, gain, lift,
+    # Probabilistic (2)
     bss, rpss,
+    # Distributional (11)
+    mkldiv, jsdiv, hellinger, wasserstein, tv, chisquare,
+    intersection, bhattacharyya, chernoff, renyi, tsallis,
+    # Means (3)
+    harmonic_mean, geometric_mean, lehmer_mean,
 )
 
 # Legacy class (deprecated)
 from .nwpeval import NWP_Stats
 
 __all__ = [
-    # New API
+    # New API - 65 metrics
     'confusion_matrix',
     'mae', 'rmse', 'acc', 'r2', 'nrmse', 'pcc', 'mbd',
+    'tse', 'evs', 'nmse', 'fv', 'sdr', 'vif', 'mad', 'iqr',
+    'nae', 'rmb', 'mape', 'wmae', 'ass', 'rss', 'qss',
+    'lmbe', 'smse', 'gmb', 'sbs', 'aev', 'cosine_similarity',
     'fss',
-    'ets', 'pod', 'far', 'csi', 'hss', 'pss', 'gss', 'fb', 'hkd', 'orss', 'seds', 'eds', 'sedi',
+    'ets', 'pod', 'far', 'csi', 'hss', 'pss', 'gss', 'fb', 'hkd', 'orss',
+    'seds', 'eds', 'sedi', 'f1', 'mcc', 'ba', 'npv', 'jaccard', 'gain', 'lift',
     'bss', 'rpss',
+    'mkldiv', 'jsdiv', 'hellinger', 'wasserstein', 'tv', 'chisquare',
+    'intersection', 'bhattacharyya', 'chernoff', 'renyi', 'tsallis',
+    'harmonic_mean', 'geometric_mean', 'lehmer_mean',
     # Legacy
     'NWP_Stats',
 ]
