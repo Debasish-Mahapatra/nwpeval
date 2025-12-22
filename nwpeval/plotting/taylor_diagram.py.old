@@ -1,0 +1,189 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+import itertools
+from matplotlib.lines import Line2D
+from collections.abc import Hashable, Iterable
+import xskillscore as xs
+
+
+markers_list = [mk for mk in list(Line2D.markers.keys()) if mk not in ['.', ',', '']]
+
+
+class DrawTaylor(object):
+    """
+    A class to draw Taylor diagrams for model evaluation.
+    """
+    
+    def __init__(self, model_names, ref_name, ax,
+                 model_data=None, 
+                 ref_data=None,
+                 corr_data=None,
+                 std_data=None,
+                 rmax=1, c_arr=None, marker_arr=None, **kwargs):
+        
+        self.model_data = model_data
+        self.model_names = model_names
+        self.ref_data = ref_data
+        self.ref_name = ref_name
+        self.corr_data = corr_data
+        self.std_data = std_data
+        self.ax = ax
+        self.rmax = rmax
+        self.ref_sd = 1
+        self.nlev = 5
+        self.rad_pts = None
+        self.deg_pts = None
+        self.contours = None
+        self.deg_last = None
+        self.p9095 = None
+        self.p9599 = None
+        self.p99100 = None
+        self.rad_pts = np.arccos([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0])
+        self.deg_pts = np.rad2deg(self.rad_pts)
+        self.c_arr = c_arr
+        self.marker_arr = marker_arr
+        
+    def __set_axes__(self):
+
+
+        r = np.arange(0, 5, 0.1)
+        # theta = 2 * np.pi * r
+            
+        self.ax.plot(np.arccos([0.8, 0.8]), [0,self.rmax], ls='--', c='darkred', lw=0.8)
+        self.ax.plot(np.arccos([0.6, 0.6]), [0,self.rmax], ls='--', c='darkred', lw=0.8)
+        self.ax.plot(np.linspace(0,np.pi/2), np.zeros_like(np.linspace(0,np.pi/2)) + self.ref_sd, '--k')
+        
+        self.ax.set_thetagrids(self.deg_pts, np.round(np.cos(self.rad_pts),2))
+        self.ax.grid(True, alpha=0.4)
+        
+        trans, _ , _ = self.ax.get_xaxis_text1_transform(-10)
+        
+        ##labels 
+        self.ax.text(np.deg2rad(45), -0.1, "Correlation", transform=trans, rotation=45-90, ha="center", va="center")
+        self.ax.set_ylabel('Standardised Standard Deviations', labelpad=30)
+        
+        ##enabling labels of orthogonal axes (X and Y)
+        self.ax.tick_params(labelleft=True, labelright=True,
+                    labeltop=False, labelbottom=True)
+        
+        ## setting the first quadrant only
+        self.ax.set_thetalim(0,np.pi/2)
+        
+        ##setting radial axes labels to include REF label
+        
+        # for idx, l in enumerate(self.ax.get_yticks().levels):
+        #     if l==:
+        #         fmt[l] = 'REF'
+        #     else:
+        #         fmt[l] = l
+        # self.ax.set_rgrids(self.ax.get_yticks(), fmt=fmt)
+        ##limiting radius
+        # self.ax.set_rmax(3)
+        
+        
+    def set_rmax(self, rmax):
+        if rmax != self.rmax:
+            self.rmax = rmax
+            self.__set_axes__()
+        #last portion ticks
+        self.deg_last = np.rad2deg(np.arccos([0.90, 0.95, 0.99, 1.0]))
+        self.p9095 = list(np.cos(np.deg2rad(np.linspace(self.deg_last[0], self.deg_last[1], 5))))
+        self.p9599 = list(np.cos(np.deg2rad(np.linspace(self.deg_last[1], self.deg_last[2], 5))))
+        self.p99100 = list(np.cos(np.deg2rad(np.linspace(self.deg_last[2], self.deg_last[3], 5))))
+        
+        for t in np.arccos([0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.90] + self.p9095 + self.p9599 + self.p99100):
+            self.ax.plot([t, t], [self.rmax, self.rmax* 0.99], '-k', lw=1,)
+        
+        for t in self.rad_pts:
+            self.ax.plot([t, t], [self.rmax, self.rmax* 0.97], '-k', lw=1,)
+        
+        rs, ts = np.meshgrid(np.linspace(0, rmax),
+                                np.linspace(0, np.pi/2))
+        
+        # Compute centered RMS difference
+        rms = np.sqrt(1+rs**2 - 2*rs*np.cos(ts))
+        
+        # RMS contours
+        self.contours = self.ax.contour(ts, rs, rms, levels=self.nlev,colors='grey', linewidths=0.6, alpha=0.6)
+        
+        ## formatting of RMS contour labels
+        fmt={}
+        
+        for idx, l in enumerate(self.contours.levels):
+            if idx==3:
+                fmt[l] = str(round(l,2))+' RMS'
+            else:
+                fmt[l] = round(l,2)
+            
+        self.ax.clabel(self.contours,  self.contours.levels, inline=True, fmt=fmt, colors='k')
+        ##setting radial axes labels to include REF label
+        rticks = []
+        for idx, l in enumerate(self.ax.get_yticks()):
+            if l==1:
+                rticks.append('REF')
+            else:
+                rticks.append(l)
+        
+        self.ax.set_rgrids(self.ax.get_yticks(), rticks)
+        self.ax.set_rmax(rmax)
+        
+    
+    def taylor_helper(self, **kwargs) -> None:
+        if self.model_data is None and self.ref_data is None:
+            num_points = len(self.corr_data)
+            try:
+                self.add_taylor_point(corr_data=self.corr_data, std_data=self.std_data, **kwargs)
+            except Exception as e:
+                print(e)
+                
+        else:
+            if isinstance(self.model_data, list):
+                num_points = len(self.model_data)  
+                if self.c_arr is None:
+                    clrs = ['#8800b0', '#169057', '#006cff', 'r', 'violet']
+                else:
+                    clrs = self.c_arr
+            # prod = [pair for pair in itertools.product(clrs, markers_list)]
+
+            ## plotting each point with markers and color
+            if num_points>=1:
+                for idx, m_data in enumerate(self.model_data):
+                    self.corr_data = xs.pearson_r(m_data, self.ref_data)
+                    self.std_data = m_data.std() / self.ref_data.std()
+                    if self.marker_arr is None:
+                        mark = markers_list[idx]
+                    else:
+                        mark = self.marker_arr[idx]
+                    
+                    try:
+                        self.add_taylor_point(corr_data=self.corr_data, std_data=self.std_data, marker=mark,
+                                              color=clrs[idx] if any(clrs) else None, **kwargs,
+                                              label=self.model_names[idx])
+                    except Exception as e:
+                        print(e)    
+
+
+    
+    def add_taylor_point(self, corr_data, std_data, legend=False, label=None, **kwargs) -> plt.PolarAxes:
+        
+        self.__set_axes__()
+        theta_ = np.arccos(corr_data)
+        
+        
+        taylorpts = self.ax.plot(theta_, std_data, ls='none', 
+                                    ms=10, mfc='none', alpha=1, 
+                                    markeredgewidth=1.4, label=label, **kwargs)
+        if legend:
+            # if num_points>1:
+            #     self.ax.legend(bbox_to_anchor=[1.0,1.0], ncol=2)
+            # else:
+            # self.ax.legend(bbox_to_anchor=[1.0,1.0])
+            self.ax.legend()
+        # self.set_rmax(self.rmax)
+    #    return taylorplots
+        
+    
+    
+    
+   

@@ -34,6 +34,7 @@ from .metrics import (
     harmonic_mean, geometric_mean, lehmer_mean,
 )
 
+from .plotting import (taylor_diagram)
 # Legacy class (deprecated)
 from .nwpeval import NWP_Stats
 
@@ -53,4 +54,6 @@ __all__ = [
     'harmonic_mean', 'geometric_mean', 'lehmer_mean',
     # Legacy
     'NWP_Stats',
+    #plotting
+    'taylor_diagram'
 ]
