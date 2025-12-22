@@ -10,7 +10,7 @@ Legacy API (deprecated):
     stats = NWP_Stats(obs, model)  # Shows deprecation warning
     stats.compute_rmse()
 """
-
+__version__ = "1.6.0"
 # Export all standalone metric functions (65 total)
 from .metrics import (
     # Utilities
