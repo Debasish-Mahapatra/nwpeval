@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -17,14 +18,38 @@ def help(cls):
 
 
 class NWP_Stats:
+    """
+    DEPRECATED: Use standalone metric functions instead.
+    
+    Example:
+        # Old way (deprecated)
+        stats = NWP_Stats(obs, model)
+        result = stats.compute_rmse()
+        
+        # New way (recommended)
+        from nwpeval import rmse
+        result = rmse(obs, model)
+    """
+    
     def __init__(self, obs_data, model_data):
         """
         Initialize the NWPMetrics object with observed and modeled data.
+        
+        .. deprecated::
+            NWP_Stats is deprecated. Use standalone metric functions instead.
+            Example: `from nwpeval import rmse; rmse(obs, model)`
         
         Args:
             obs_data (xarray.DataArray): The observed data.
             model_data (xarray.DataArray): The modeled data.
         """
+        warnings.warn(
+            "NWP_Stats is deprecated and will be removed in a future version. "
+            "Use standalone metric functions instead: "
+            "`from nwpeval import rmse, mae, fss; rmse(obs, model)`",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.obs_data = obs_data
         self.model_data = model_data
 
@@ -52,7 +77,8 @@ class NWP_Stats:
             elif metric == 'FSS':
                 threshold = thresholds.get('FSS', 0.5)
                 neighborhood_size = thresholds.get('FSS_neighborhood', 3)
-                metric_values[metric] = self.compute_fss(threshold, neighborhood_size, dim)
+                spatial_dims = thresholds.get('FSS_spatial_dims', None)
+                metric_values[metric] = self.compute_fss(threshold, neighborhood_size, spatial_dims, dim)
             elif metric == 'ETS':
                 threshold = thresholds.get('ETS', 0.5)
                 metric_values[metric] = self.compute_ets(threshold, dim)
@@ -74,9 +100,6 @@ class NWP_Stats:
             elif metric == 'PSS':
                 threshold = thresholds.get('PSS', 0.5)
                 metric_values[metric] = self.compute_pss(threshold, dim)
-            elif metric == 'GS':
-                threshold = thresholds.get('GS', 0.5)
-                metric_values[metric] = self.compute_gs(threshold, dim)
             elif metric == 'SEDS':
                 threshold = thresholds.get('SEDS', 0.5)
                 metric_values[metric] = self.compute_seds(threshold, dim)
@@ -248,34 +271,58 @@ class NWP_Stats:
         """Calculate the Anomaly Correlation Coefficient (ACC)."""
         return xr.corr(self.obs_data, self.model_data, dim=dim)
 
-    def compute_fss(self, threshold, neighborhood_size, dim=None):
+    def compute_fss(self, threshold, neighborhood_size, spatial_dims=None, reduction_dim=None):
         """
         Compute the Fractions Skill Score (FSS) for a given threshold and neighborhood size.
         
         Args:
             threshold (float): The threshold value for binary classification.
             neighborhood_size (int): The size of the neighborhood window.
-            dim (str, list, or None): The dimension(s) along which to compute the FSS.
-                                      If None, compute the FSS over the entire data.
+            spatial_dims (str, list, or None): The spatial dimension(s) for rolling window.
+                                               If None, defaults to ['lat', 'lon'] or ['x', 'y'].
+            reduction_dim (str, list, or None): The dimension(s) along which to reduce
+                                                 after computing fractions.
         
         Returns:
             xarray.DataArray: The computed FSS values.
         """
         # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
+        obs_binary = (self.obs_data >= threshold).astype(float)
+        model_binary = (self.model_data >= threshold).astype(float)
+        
+        # Determine spatial dimensions for rolling
+        if spatial_dims is None:
+            # Try common spatial dimension names
+            dims = list(self.obs_data.dims)
+            if 'lat' in dims and 'lon' in dims:
+                spatial_dims = ['lat', 'lon']
+            elif 'x' in dims and 'y' in dims:
+                spatial_dims = ['x', 'y']
+            elif len(dims) >= 2:
+                spatial_dims = dims[-2:]  # Assume last two are spatial
+            else:
+                spatial_dims = dims  # Use all available dimensions
+        
+        if isinstance(spatial_dims, str):
+            spatial_dims = [spatial_dims]
+        
+        # Create rolling window dict for all spatial dimensions
+        rolling_dict = {d: neighborhood_size for d in spatial_dims if d in self.obs_data.dims}
+        
+        if not rolling_dict:
+            raise ValueError(f"None of the spatial dimensions {spatial_dims} found in data dimensions {list(self.obs_data.dims)}")
         
         # Compute the fractions within each neighborhood
-        obs_fractions = obs_binary.rolling({dim: neighborhood_size}, center=True).mean()
-        model_fractions = model_binary.rolling({dim: neighborhood_size}, center=True).mean()
+        obs_fractions = obs_binary.rolling(rolling_dict, center=True).mean()
+        model_fractions = model_binary.rolling(rolling_dict, center=True).mean()
         
         # Calculate the mean squared error (MSE) of the fractions
-        mse = ((obs_fractions - model_fractions) ** 2).mean(dim=dim)
+        mse = ((obs_fractions - model_fractions) ** 2).mean(dim=reduction_dim)
         
-        # Calculate the reference MSE
-        obs_fraction_mean = obs_fractions.mean(dim=dim)
-        model_fraction_mean = model_fractions.mean(dim=dim)
-        mse_ref = obs_fraction_mean * (1 - obs_fraction_mean) + model_fraction_mean * (1 - model_fraction_mean)
+        # Calculate the reference MSE (worst case: no skill)
+        obs_fraction_mean = obs_fractions.mean(dim=reduction_dim)
+        model_fraction_mean = model_fractions.mean(dim=reduction_dim)
+        mse_ref = (obs_fraction_mean ** 2) + (model_fraction_mean ** 2)
         
         # Calculate the FSS
         fss = 1 - mse / mse_ref
@@ -392,14 +439,15 @@ class NWP_Stats:
             xarray.DataArray: The computed BSS values.
         """
         # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
+        obs_binary = (self.obs_data >= threshold).astype(float)
         
         # Calculate the Brier score for the model data
         bs_model = ((self.model_data - obs_binary) ** 2).mean(dim=dim)
         
-        # Calculate the Brier score for the climatology (base rate)
+        # Calculate the Brier score for the climatology (base rate forecast)
+        # Climatology forecast = base rate for all points
         base_rate = obs_binary.mean(dim=dim)
-        bs_climo = base_rate * (1 - base_rate)
+        bs_climo = ((base_rate - obs_binary) ** 2).mean(dim=dim)
         
         # Calculate the BSS
         bss = 1 - bs_model / bs_climo
@@ -453,30 +501,6 @@ class NWP_Stats:
         pss = (tp / (tp + fn)) - (fp / (fp + tn))
         
         return pss
-
-    def compute_gs(self, threshold, dim=None):
-        """
-        Compute the Gilbert Skill Score (GS) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the GS.
-                                      If None, compute the GS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed GS values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the GS
-        gs = (tp - ((tp + fp) * (tp + fn) / (tp + fp + fn + tn))) / (tp + fp + fn - ((tp + fp) * (tp + fn) / (tp + fp + fn + tn)))
-        
-        return gs
 
     def compute_seds(self, threshold, dim=None):
         """
@@ -607,6 +631,11 @@ class NWP_Stats:
         """
         Compute the Extreme Dependency Score (EDS) for a given threshold.
         
+        EDS is designed for rare events and measures the association between
+        forecasts and observations using the formula:
+        EDS = 2 * log(p) / log(q) - 1
+        where p = (tp + fn) / n (base rate) and q = tp / (tp + fp + fn + tn) (hit rate)
+        
         Args:
             threshold (float): The threshold value for binary classification.
             dim (str, list, or None): The dimension(s) along which to compute the EDS.
@@ -622,8 +651,18 @@ class NWP_Stats:
         # Calculate the confusion matrix
         tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
         
-        # Calculate the EDS
-        eds = (tp / (tp + fn)) * (tp / (tp + fp))
+        # Total count
+        n = tp + fp + fn + tn
+        
+        # Base rate (climatological frequency of events)
+        p = (tp + fn) / n
+        
+        # Hit rate
+        H = tp / (tp + fn)
+        
+        # Calculate the EDS: EDS = (log(H) - log(p)) / (log(H) + log(p))
+        # This is equivalent to: 2 * log(p) / log(H) - 1 when rearranged
+        eds = (np.log(H) - np.log(p)) / (np.log(H) + np.log(p))
         
         return eds
 
@@ -659,28 +698,32 @@ class NWP_Stats:
         """
         Compute the Ranked Probability Skill Score (RPSS) for a given threshold.
         
+        Note: RPSS is traditionally used for multi-category probabilistic forecasts.
+        This implementation provides a simplified binary version similar to BSS.
+    
         Args:
             threshold (float): The threshold value for binary classification.
             dim (str, list, or None): The dimension(s) along which to compute the RPSS.
-                                      If None, compute the RPSS over the entire data.
-        
+                                  If None, compute the RPSS over the entire data.
+    
         Returns:
             xarray.DataArray: The computed RPSS values.
         """
         # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
+        obs_binary = (self.obs_data >= threshold).astype(float)
+        model_binary = (self.model_data >= threshold).astype(float)
+    
+        # For binary case, RPS reduces to Brier Score
         # Calculate the RPS for the model data
-        rps_model = ((model_binary.cumsum('dim_0') - obs_binary.cumsum('dim_0')) ** 2).mean()
-        
+        rps_model = ((model_binary - obs_binary) ** 2).mean(dim=dim)
+    
         # Calculate the RPS for the climatology (base rate)
         base_rate = obs_binary.mean(dim=dim)
-        rps_climo = ((xr.full_like(model_binary, base_rate).cumsum('dim_0') - obs_binary.cumsum('dim_0')) ** 2).mean()
-        
+        rps_climo = ((base_rate - obs_binary) ** 2).mean(dim=dim)
+    
         # Calculate the RPSS
         rpss = 1 - rps_model / rps_climo
-        
+    
         return rpss
 
     def compute_tse(self, dim=None):
@@ -1020,6 +1063,9 @@ class NWP_Stats:
         """
         Compute the Adjusted Explained Variance (AEV).
         
+        This is similar to EVS but adjusts for the degrees of freedom.
+        AEV = 1 - (error variance / observation variance)
+        
         Args:
             dim (str, list, or None): The dimension(s) along which to compute the AEV.
                                       If None, compute the AEV over the entire data.
@@ -1029,7 +1075,7 @@ class NWP_Stats:
         """
         obs_var = self.obs_data.var(dim=dim)
         err_var = (self.obs_data - self.model_data).var(dim=dim)
-        return 1 - (err_var - obs_var) / obs_var
+        return 1 - err_var / obs_var
 
     def compute_cosine_similarity(self, dim=None):
         """
@@ -1310,14 +1356,16 @@ class NWP_Stats:
 
     def compute_harmonic_mean(self, dim=None):
         """
-        Compute the Harmonic Mean.
+        Compute the element-wise Harmonic Mean between obs and model data.
+        
+        This returns 2 / (1/obs + 1/model) for each corresponding element.
+        Note: This is an element-wise combination, not an aggregation over dim.
         
         Args:
-            dim (str, list, or None): The dimension(s) along which to compute the Harmonic Mean.
-                                      If None, compute the Harmonic Mean over the entire data.
+            dim: Unused, kept for API consistency.
         
         Returns:
-            xarray.DataArray: The computed Harmonic Mean values.
+            xarray.DataArray: Element-wise harmonic mean of obs and model.
         """
         obs_inv = 1 / self.obs_data
         model_inv = 1 / self.model_data
@@ -1325,14 +1373,16 @@ class NWP_Stats:
 
     def compute_geometric_mean(self, dim=None):
         """
-        Compute the Geometric Mean.
+        Compute the element-wise Geometric Mean between obs and model data.
+        
+        This returns sqrt(obs * model) for each corresponding element.
+        Note: This is an element-wise combination, not an aggregation over dim.
         
         Args:
-            dim (str, list, or None): The dimension(s) along which to compute the Geometric Mean.
-                                      If None, compute the Geometric Mean over the entire data.
+            dim: Unused, kept for API consistency.
         
         Returns:
-            xarray.DataArray: The computed Geometric Mean values.
+            xarray.DataArray: Element-wise geometric mean of obs and model.
         """
         return np.sqrt(self.obs_data * self.model_data)
 

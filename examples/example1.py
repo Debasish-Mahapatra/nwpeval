@@ -10,7 +10,7 @@ metrics = NWP_Stats(obs_data, model_data)
 
 # Define the metrics to compute
 metrics_to_compute = ['MAE', 'RMSE', 'ACC', 'FSS', 'ETS', 'POD', 'FAR', 'CSI', 'BSS', 'HSS',
-                      'PSS', 'GS', 'SEDS', 'FB', 'GSS', 'H-KD', 'ORSS', 'EDS', 'SEDI', 'RPSS']
+                      'PSS', 'SEDS', 'FB', 'GSS', 'H-KD', 'ORSS', 'EDS', 'SEDI', 'RPSS']
 
 # Define the thresholds for specific metrics
 thresholds = {
@@ -23,7 +23,6 @@ thresholds = {
     'BSS': 0.6,
     'HSS': 0.5,
     'PSS': 0.4,
-    'GS': 0.7,
     'SEDS': 0.8,
     'FB': 0.6,
     'GSS': 0.5,
