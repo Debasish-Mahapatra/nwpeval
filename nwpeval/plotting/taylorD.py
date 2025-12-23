@@ -36,13 +36,17 @@ def set_rmax(ax, rticks=None, rmax=1, nlev=5, ref_sd=1):
     Configure radial limits, draw RMS contours and tick marks.
     Returns a dict with 'contours' and a few helper arrays if needed.
     """
-    
+    if rticks is None:
+        ticks = np.arange(0, rmax, 0.2)
+    else:
+        ticks=rticks
+    rmax=max(ticks)
     rad_pts, deg_pts = _set_axes(ax, rmax=rmax, ref_sd=ref_sd)
 
     deg_last = np.rad2deg(np.arccos([0.90, 0.95, 0.99, 1.0]))
-    p9095 = list(np.cos(np.deg2rad(np.linspace(deg_last[0], deg_last[1], 5))))
+    p9095 = list(np.cos(np.deg2rad(np.linspace(deg_last[0], deg_last[1], 6))))
     p9599 = list(np.cos(np.deg2rad(np.linspace(deg_last[1], deg_last[2], 5))))
-    p99100 = list(np.cos(np.deg2rad(np.linspace(deg_last[2], deg_last[3], 5))))
+    p99100 = list(np.cos(np.deg2rad(np.linspace(deg_last[2], deg_last[3], 6))))
 
     for t in np.arccos([0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.90] + p9095 + p9599 + p99100):
         ax.plot([t, t], [rmax, rmax * 0.99], '-k', lw=1)
@@ -86,10 +90,7 @@ def set_rmax(ax, rticks=None, rmax=1, nlev=5, ref_sd=1):
         #     return np.arange(0, maxval+0.1, 0.50)
         # else:
         #     return np.arange(0, maxval+0.1, 0.10)
-    if rticks is None:
-        ticks = np.arange(0, rmax, 0.2)
-    else:
-        ticks=rticks
+    
     # If 1.0 lies within the axis range, ensure it's present so we can label it 'REF'
     if (1.0 < rmax) and not np.any(np.isclose(ticks, 1.0)):
         ticks = np.sort(np.append(ticks, 1.0))
@@ -117,7 +118,7 @@ def set_rmax(ax, rticks=None, rmax=1, nlev=5, ref_sd=1):
             labels.append(fmt_str)
 
     ax.set_rgrids(ticks, labels)
-    # ax.set_rmax(rmax)
+    ax.set_rmax(max(ticks))
     
         
     return 
@@ -130,10 +131,10 @@ def add_taylor_point(ax, corr_data, std_data, rmax=1, legend=False, label=None, 
     """
     _set_axes(ax, rmax=rmax)
     theta_ = np.arccos(corr_data)
-    ax.plot(theta_, std_data, ls='none', ms=10, mfc='none', alpha=1,
+    ax.plot(theta_, std_data, ls='none', alpha=1,
             markeredgewidth=1.4, label=label, **kwargs)
-    if legend:
-        ax.legend()
+    # if legend:
+    #     ax.legend()
     return ax
 
 def taylor_helper(ax, model_names=None, model_data=None, ref_data=None,
@@ -178,7 +179,7 @@ def taylor_helper(ax, model_names=None, model_data=None, ref_data=None,
     add_taylor_point(ax, corr, std, rmax=rmax, label=(model_names[0] if model_names else None), **kwargs)
     return ax
 
-def draw_taylor(ax, model_names=None, model_data=None, ref_data=None,
+def draw_taylor(ax, model_names=None, model_data=None, ref_name=None, ref_data=None,
                 corr_data=None, std_data=None, rticks=None, rmax=1, set_rmax_nlev=5,
                 c_arr=None, marker_arr=None, ref_sd=1, legend=False, **kwargs):
     """
@@ -191,7 +192,8 @@ def draw_taylor(ax, model_names=None, model_data=None, ref_data=None,
     taylor_helper(ax, model_names=model_names, model_data=model_data, ref_data=ref_data,
                   corr_data=corr_data, std_data=std_data, rmax=rmax, c_arr=c_arr, marker_arr=marker_arr,
                   legend=legend, **kwargs)
-    
+    add_taylor_point(ax=ax, corr_data=1, std_data=1, marker='*', color='r', mfc='r', ms=10,
+                     label='Reference' if ref_name is None else ref_name )
     set_rmax(ax, rticks=rticks, rmax=rmax, nlev=set_rmax_nlev, ref_sd=ref_sd)
     
     return ax
