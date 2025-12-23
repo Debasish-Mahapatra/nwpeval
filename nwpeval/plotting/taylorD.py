@@ -178,7 +178,7 @@ def taylor_helper(ax, model_names=None, model_data=None, ref_data=None,
     add_taylor_point(ax, corr, std, rmax=rmax, label=(model_names[0] if model_names else None), **kwargs)
     return ax
 
-def draw_taylor(ax, model_names=None, ref_name=None, model_data=None, ref_data=None,
+def draw_taylor(ax, model_names=None, model_data=None, ref_data=None,
                 corr_data=None, std_data=None, rticks=None, rmax=1, set_rmax_nlev=5,
                 c_arr=None, marker_arr=None, ref_sd=1, legend=False, **kwargs):
     """
