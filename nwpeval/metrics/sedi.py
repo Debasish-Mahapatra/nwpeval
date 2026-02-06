@@ -1,5 +1,6 @@
 """Symmetric Extremal Dependence Index (SEDI)."""
 import numpy as np
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -21,10 +22,17 @@ def sedi(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    pod = tp / (tp + fn)
-    pofd = fp / (fp + tn)
+    # Avoid division by zero
+    pod = xr.where((tp + fn) == 0, np.nan, tp / (tp + fn))
+    pofd = xr.where((fp + tn) == 0, np.nan, fp / (fp + tn))
     
-    numerator = np.log(pod) - np.log(pofd) + np.log(1 - pofd) - np.log(1 - pod)
-    denominator = np.log(pod) + np.log(1 - pofd) + np.log(1 - pod) + np.log(pofd)
+    # Clip to avoid log(0) and log(1) issues
+    eps = 1e-10
+    pod_safe = pod.clip(eps, 1 - eps)
+    pofd_safe = pofd.clip(eps, 1 - eps)
     
-    return numerator / denominator
+    numerator = np.log(pod_safe) - np.log(pofd_safe) + np.log(1 - pofd_safe) - np.log(1 - pod_safe)
+    denominator = np.log(pod_safe) + np.log(1 - pofd_safe) + np.log(1 - pod_safe) + np.log(pofd_safe)
+    
+    return xr.where(denominator == 0, np.nan, numerator / denominator)
+

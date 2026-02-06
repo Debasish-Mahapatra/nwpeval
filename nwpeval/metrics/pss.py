@@ -1,4 +1,5 @@
 """Peirce Skill Score (PSS)."""
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -20,4 +21,10 @@ def pss(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    return (tp / (tp + fn)) - (fp / (fp + tn))
+    pod_denom = tp + fn
+    pofd_denom = fp + tn
+    pod = xr.where(pod_denom == 0, 0.0, tp / pod_denom)
+    pofd = xr.where(pofd_denom == 0, 0.0, fp / pofd_denom)
+    
+    return pod - pofd
+

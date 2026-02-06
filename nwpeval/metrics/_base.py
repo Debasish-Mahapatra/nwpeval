@@ -20,10 +20,11 @@ def confusion_matrix(obs_binary, model_binary, dim=None):
     fn = (obs_binary == 1) & (model_binary == 0)
     tp = (obs_binary == 1) & (model_binary == 1)
 
-    if dim is not None:
-        tn = tn.sum(dim=dim)
-        fp = fp.sum(dim=dim)
-        fn = fn.sum(dim=dim)
-        tp = tp.sum(dim=dim)
+    # Sum over specified dimensions (or all if dim=None)
+    tn = tn.sum(dim=dim)
+    fp = fp.sum(dim=dim)
+    fn = fn.sum(dim=dim)
+    tp = tp.sum(dim=dim)
 
     return tn, fp, fn, tp
+

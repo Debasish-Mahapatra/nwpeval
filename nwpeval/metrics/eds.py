@@ -1,5 +1,6 @@
 """Extreme Dependency Score (EDS)."""
 import numpy as np
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -25,7 +26,16 @@ def eds(obs_data, model_data, threshold, dim=None):
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
     n = tp + fp + fn + tn
-    p = (tp + fn) / n  # Base rate
-    H = tp / (tp + fn)  # Hit rate
+    p = xr.where(n == 0, np.nan, (tp + fn) / n)  # Base rate
+    H = xr.where((tp + fn) == 0, np.nan, tp / (tp + fn))  # Hit rate
     
-    return (np.log(H) - np.log(p)) / (np.log(H) + np.log(p))
+    # Clip to avoid log(0) issues
+    eps = 1e-10
+    p_safe = p.clip(eps, 1 - eps)
+    H_safe = H.clip(eps, 1 - eps)
+    
+    numerator = np.log(H_safe) - np.log(p_safe)
+    denominator = np.log(H_safe) + np.log(p_safe)
+    
+    return xr.where(denominator == 0, np.nan, numerator / denominator)
+

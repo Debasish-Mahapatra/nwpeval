@@ -1,5 +1,6 @@
 """Matthews Correlation Coefficient (MCC)."""
 import numpy as np
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -21,18 +22,10 @@ def mcc(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    # Convert to float to avoid integer overflow
-    tn, fp, fn, tp = float(tn), float(fp), float(fn), float(tp)
-    
     numerator = (tp * tn) - (fp * fn)
     denominator = np.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
     
-    # Handle division by zero
-    if denominator == 0:
-        return 0.0
+    # Handle division by zero using xr.where to preserve xarray structure
+    result = xr.where(denominator == 0, 0.0, numerator / denominator)
     
-    result = numerator / denominator
-    
-    # Clip to valid range [-1, 1]
-    return np.clip(result, -1.0, 1.0)
-
+    return result.clip(-1.0, 1.0)

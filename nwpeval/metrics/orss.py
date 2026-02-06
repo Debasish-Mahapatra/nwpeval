@@ -1,4 +1,6 @@
 """Odds Ratio Skill Score (ORSS)."""
+import numpy as np
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -20,5 +22,12 @@ def orss(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    odds_ratio = (tp * tn) / (fp * fn)
-    return (odds_ratio - 1) / (odds_ratio + 1)
+    # Handle cases where fp * fn = 0
+    denominator = fp * fn
+    odds_ratio = xr.where(denominator == 0, np.inf, (tp * tn) / denominator)
+    
+    # Handle infinite odds ratio
+    result = xr.where(odds_ratio == np.inf, 1.0, (odds_ratio - 1) / (odds_ratio + 1))
+    
+    return result
+

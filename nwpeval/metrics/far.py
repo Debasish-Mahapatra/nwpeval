@@ -1,4 +1,5 @@
 """False Alarm Ratio (FAR)."""
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -20,4 +21,6 @@ def far(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    return fp / (tp + fp)
+    denominator = tp + fp
+    return xr.where(denominator == 0, 0.0, fp / denominator)
+

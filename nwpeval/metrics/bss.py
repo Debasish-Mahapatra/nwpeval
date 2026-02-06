@@ -1,4 +1,5 @@
 """Brier Skill Score (BSS)."""
+import xarray as xr
 
 
 def bss(obs_data, model_data, threshold, dim=None):
@@ -23,4 +24,5 @@ def bss(obs_data, model_data, threshold, dim=None):
     base_rate = obs_binary.mean(dim=dim)
     bs_climo = ((base_rate - obs_binary) ** 2).mean(dim=dim)
     
-    return 1 - bs_model / bs_climo
+    return xr.where(bs_climo == 0, 0.0, 1 - bs_model / bs_climo)
+

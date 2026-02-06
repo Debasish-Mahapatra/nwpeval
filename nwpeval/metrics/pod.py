@@ -1,4 +1,5 @@
 """Probability of Detection (POD)."""
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -20,4 +21,6 @@ def pod(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    return tp / (tp + fn)
+    denominator = tp + fn
+    return xr.where(denominator == 0, 0.0, tp / denominator)
+

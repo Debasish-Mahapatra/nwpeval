@@ -1,4 +1,5 @@
 """Ranked Probability Skill Score (RPSS)."""
+import xarray as xr
 
 
 def rpss(obs_data, model_data, threshold, dim=None):
@@ -26,4 +27,5 @@ def rpss(obs_data, model_data, threshold, dim=None):
     base_rate = obs_binary.mean(dim=dim)
     rps_climo = ((base_rate - obs_binary) ** 2).mean(dim=dim)
     
-    return 1 - rps_model / rps_climo
+    return xr.where(rps_climo == 0, 0.0, 1 - rps_model / rps_climo)
+

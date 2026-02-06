@@ -1,4 +1,5 @@
 """Heidke Skill Score (HSS)."""
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -20,4 +21,8 @@ def hss(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    return 2 * (tp * tn - fp * fn) / ((tp + fn) * (fn + tn) + (tp + fp) * (fp + tn))
+    numerator = 2 * (tp * tn - fp * fn)
+    denominator = (tp + fn) * (fn + tn) + (tp + fp) * (fp + tn)
+    
+    return xr.where(denominator == 0, 0.0, numerator / denominator)
+

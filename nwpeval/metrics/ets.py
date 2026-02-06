@@ -1,4 +1,5 @@
 """Equitable Threat Score (ETS)."""
+import xarray as xr
 from ._base import confusion_matrix
 
 
@@ -20,5 +21,11 @@ def ets(obs_data, model_data, threshold, dim=None):
     
     tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
     
-    hits_random = (tp + fp) * (tp + fn) / (tp + fp + fn + tn)
-    return (tp - hits_random) / (tp + fp + fn - hits_random)
+    n = tp + fp + fn + tn
+    hits_random = xr.where(n == 0, 0.0, (tp + fp) * (tp + fn) / n)
+    
+    numerator = tp - hits_random
+    denominator = tp + fp + fn - hits_random
+    
+    return xr.where(denominator == 0, 0.0, numerator / denominator)
+

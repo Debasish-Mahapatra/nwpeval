@@ -267,9 +267,21 @@ class NWP_Stats:
         """Calculate the Root Mean Square Error (RMSE)."""
         return np.sqrt(((self.obs_data - self.model_data) ** 2).mean(dim=dim))
 
-    def compute_acc(self, dim=None):
-        """Calculate the Anomaly Correlation Coefficient (ACC)."""
-        return xr.corr(self.obs_data, self.model_data, dim=dim)
+    def compute_acc(self, climatology=None, dim=None):
+        """Calculate the Anomaly Correlation Coefficient (ACC).
+        
+        Args:
+            climatology (xarray.DataArray, optional): The climatological reference.
+                If None, the mean of obs_data over the specified dimensions is used.
+            dim (str, list, or None): Dimension(s) to compute over.
+        """
+        if climatology is None:
+            climatology = self.obs_data.mean(dim=dim)
+        
+        obs_anomaly = self.obs_data - climatology
+        model_anomaly = self.model_data - climatology
+        
+        return xr.corr(obs_anomaly, model_anomaly, dim=dim)
 
     def compute_fss(self, threshold, neighborhood_size, spatial_dims=None, reduction_dim=None):
         """
