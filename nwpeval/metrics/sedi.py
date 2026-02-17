@@ -31,7 +31,7 @@ def sedi(obs_data, model_data, threshold, dim=None):
     pod_safe = pod.clip(eps, 1 - eps)
     pofd_safe = pofd.clip(eps, 1 - eps)
     
-    numerator = np.log(pod_safe) - np.log(pofd_safe) + np.log(1 - pofd_safe) - np.log(1 - pod_safe)
+    numerator = np.log(pofd_safe) - np.log(pod_safe) + np.log(1 - pod_safe) - np.log(1 - pofd_safe)
     denominator = np.log(pod_safe) + np.log(1 - pofd_safe) + np.log(1 - pod_safe) + np.log(pofd_safe)
     
     return xr.where(denominator == 0, np.nan, numerator / denominator)
