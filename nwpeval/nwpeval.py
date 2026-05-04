@@ -33,7 +33,6 @@ from .metrics import (
     f1 as _f1,
     ba as _ba,
     npv as _npv,
-    jaccard as _jaccard,
     lift as _lift,
     wasserstein as _wasserstein,
     bhattacharyya as _bhattacharyya,
@@ -588,50 +587,18 @@ class NWP_Stats:
     def compute_gss(self, threshold, dim=None):
         """
         Compute the Gilbert Skill Score (GSS) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the GSS.
-                                      If None, compute the GSS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed GSS values.
+
+        Alias of :meth:`compute_ets` (GSS and ETS are the same metric).
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the GSS
-        gss = (tp - ((tp + fp) * (tp + fn) / (tp + fp + fn + tn))) / (tp + fp + fn - ((tp + fp) * (tp + fn) / (tp + fp + fn + tn)))
-        
-        return gss
+        return self.compute_ets(threshold, dim)
 
     def compute_hkd(self, threshold, dim=None):
         """
-        Compute the Hanssen-Kuipers Discriminant (H-KD) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the H-KD.
-                                      If None, compute the H-KD over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed H-KD values.
+        Compute the Hanssen-Kuipers Discriminant (HKD) for a given threshold.
+
+        Alias of :meth:`compute_pss` (HKD and PSS are the same metric).
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the H-KD
-        hkd = (tp / (tp + fn)) - (fp / (fp + tn))
-        
-        return hkd
+        return self.compute_pss(threshold, dim)
 
     def compute_orss(self, threshold, dim=None):
         """
@@ -1114,16 +1081,10 @@ class NWP_Stats:
     def compute_jaccard(self, threshold, dim=None):
         """
         Compute the Jaccard Similarity Coefficient for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the Jaccard Similarity Coefficient.
-                                      If None, compute the Jaccard Similarity Coefficient over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed Jaccard Similarity Coefficient values.
+
+        Alias of :meth:`compute_csi` (Jaccard and CSI are the same metric).
         """
-        return _jaccard(self.obs_data, self.model_data, threshold, dim=dim)
+        return self.compute_csi(threshold, dim)
 
     def compute_gain(self, threshold, dim=None):
         """

@@ -1,14 +1,18 @@
-"""Jaccard Similarity Coefficient."""
-import numpy as np
-import xarray as xr
-from ._base import confusion_matrix
+"""Jaccard Similarity Coefficient.
+
+Alias of :func:`csi`. The Jaccard similarity (in machine learning) and
+the Critical Success Index (in forecast verification) are the same metric:
+TP / (TP + FP + FN).
+"""
+from .csi import csi
 
 
 def jaccard(obs_data, model_data, threshold, dim=None):
     """
     Compute the Jaccard Similarity Coefficient for a given threshold.
 
-    Jaccard = |obs intersect model| / |obs union model| = TP / (TP + FP + FN).
+    Jaccard is mathematically identical to the Critical Success Index (CSI).
+    This function is kept as an alias for backward compatibility.
 
     Args:
         obs_data (xarray.DataArray): The observed data.
@@ -17,12 +21,6 @@ def jaccard(obs_data, model_data, threshold, dim=None):
         dim (str, list, or None): Dimension(s) to compute over.
 
     Returns:
-        xarray.DataArray: The computed Jaccard values.
+        xarray.DataArray: The computed Jaccard values (same as CSI).
     """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-
-    union = tp + fp + fn
-    return xr.where(union == 0, np.nan, tp / union)
+    return csi(obs_data, model_data, threshold, dim=dim)
