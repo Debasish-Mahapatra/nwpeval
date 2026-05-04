@@ -1,14 +1,16 @@
-import pygrib
 import xarray as xr
 import pandas as pd
+
 
 def load_data(data):
     """
     Load data from various formats (xarray DataArray, pandas DataFrame, NetCDF, GRIB, CSV, or Excel).
-    
+
+    GRIB support requires the optional `pygrib` dependency, imported lazily.
+
     Args:
         data (xarray.DataArray, pandas.DataFrame, or str): The input data, either as an xarray DataArray, pandas DataFrame, or file path (NetCDF, GRIB, CSV, or Excel).
-    
+
     Returns:
         xarray.DataArray: The loaded data as an xarray DataArray.
     """
@@ -20,6 +22,13 @@ def load_data(data):
         if data.endswith('.nc'):
             return xr.open_dataarray(data)
         elif data.endswith('.grib') or data.endswith('.grb'):
+            try:
+                import pygrib  # noqa: F401
+            except ImportError as exc:
+                raise ImportError(
+                    "Reading GRIB files requires the 'pygrib' package. "
+                    "Install it with `pip install pygrib`."
+                ) from exc
             return xr.open_dataarray(data, engine='cfgrib')
         elif data.endswith('.csv'):
             df = pd.read_csv(data)

@@ -5,6 +5,45 @@ import pandas as pd
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 
+from .metrics import (
+    acc as _acc,
+    seds as _seds,
+    eds as _eds,
+    sedi as _sedi,
+    orss as _orss,
+    nmse as _nmse,
+    fv as _fv,
+    sdr as _sdr,
+    vif as _vif,
+    mad as _mad,
+    iqr as _iqr,
+    r2 as _r2,
+    nae as _nae,
+    rmb as _rmb,
+    mape as _mape,
+    ass as _ass,
+    rss as _rss,
+    nrmse as _nrmse,
+    lmbe as _lmbe,
+    smse as _smse,
+    gmb as _gmb,
+    sbs as _sbs,
+    aev as _aev,
+    cosine_similarity as _cosine_similarity,
+    f1 as _f1,
+    ba as _ba,
+    npv as _npv,
+    jaccard as _jaccard,
+    lift as _lift,
+    wasserstein as _wasserstein,
+    bhattacharyya as _bhattacharyya,
+    lehmer_mean as _lehmer_mean,
+    chernoff as _chernoff,
+    renyi as _renyi,
+    tsallis as _tsallis,
+    evs as _evs,
+)
+
 
 def help(cls):
     print("Available methods in the NWP_Stats class:")
@@ -269,19 +308,13 @@ class NWP_Stats:
 
     def compute_acc(self, climatology=None, dim=None):
         """Calculate the Anomaly Correlation Coefficient (ACC).
-        
+
         Args:
             climatology (xarray.DataArray, optional): The climatological reference.
                 If None, the mean of obs_data over the specified dimensions is used.
             dim (str, list, or None): Dimension(s) to compute over.
         """
-        if climatology is None:
-            climatology = self.obs_data.mean(dim=dim)
-        
-        obs_anomaly = self.obs_data - climatology
-        model_anomaly = self.model_data - climatology
-        
-        return xr.corr(obs_anomaly, model_anomaly, dim=dim)
+        return _acc(self.obs_data, self.model_data, climatology=climatology, dim=dim)
 
     def compute_fss(self, threshold, neighborhood_size, spatial_dims=None, reduction_dim=None):
         """
@@ -526,21 +559,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed SEDS values.
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the POD and POFD
-        pod = tp / (tp + fn)
-        pofd = fp / (fp + tn)
-        
-        # Calculate the SEDS
-        seds = (np.log(pod) - np.log(pofd) + np.log(1 - pofd) - np.log(1 - pod)) / (np.log(pod) + np.log(1 - pofd))
-        
-        return seds
+        return _seds(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_fb(self, threshold, dim=None):
         """
@@ -626,18 +645,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed ORSS values.
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the ORSS
-        odds_ratio = (tp * tn) / (fp * fn)
-        orss = (odds_ratio - 1) / (odds_ratio + 1)
-        
-        return orss
+        return _orss(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_eds(self, threshold, dim=None):
         """
@@ -656,27 +664,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed EDS values.
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Total count
-        n = tp + fp + fn + tn
-        
-        # Base rate (climatological frequency of events)
-        p = (tp + fn) / n
-        
-        # Hit rate
-        H = tp / (tp + fn)
-        
-        # Calculate the EDS: EDS = (log(H) - log(p)) / (log(H) + log(p))
-        # This is equivalent to: 2 * log(p) / log(H) - 1 when rearranged
-        eds = (np.log(H) - np.log(p)) / (np.log(H) + np.log(p))
-        
-        return eds
+        return _eds(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_sedi(self, threshold, dim=None):
         """
@@ -690,21 +678,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed SEDI values.
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the POD and POFD
-        pod = tp / (tp + fn)
-        pofd = fp / (fp + tn)
-        
-        # Calculate the SEDI
-        sedi = (np.log(pod) - np.log(pofd) + np.log(1 - pofd) - np.log(1 - pod)) / (np.log(pod) + np.log(1 - pofd) + np.log(1 - pod) + np.log(pofd))
-        
-        return sedi
+        return _sedi(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_rpss(self, threshold, dim=None):
         """
@@ -762,9 +736,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed EVS values.
         """
-        obs_var = self.obs_data.var(dim=dim)
-        err_var = (self.obs_data - self.model_data).var(dim=dim)
-        return 1 - err_var / obs_var
+        return _evs(self.obs_data, self.model_data, dim=dim)
 
     def compute_nmse(self, dim=None):
         """
@@ -777,9 +749,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed NMSE values.
         """
-        mse = ((self.model_data - self.obs_data) ** 2).mean(dim=dim)
-        obs_mean = self.obs_data.mean(dim=dim)
-        return mse / (obs_mean ** 2)
+        return _nmse(self.obs_data, self.model_data, dim=dim)
 
     def compute_fv(self, dim=None):
         """
@@ -792,9 +762,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed FV values.
         """
-        obs_var = self.obs_data.var(dim=dim)
-        model_var = self.model_data.var(dim=dim)
-        return model_var / obs_var
+        return _fv(self.obs_data, self.model_data, dim=dim)
 
     def compute_pcc(self, dim=None):
         """
@@ -820,9 +788,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed SDR values.
         """
-        obs_std = self.obs_data.std(dim=dim)
-        model_std = self.model_data.std(dim=dim)
-        return model_std / obs_std
+        return _sdr(self.obs_data, self.model_data, dim=dim)
 
     def compute_vif(self, dim=None):
         """
@@ -835,9 +801,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed VIF values.
         """
-        obs_var = self.obs_data.var(dim=dim)
-        model_var = self.model_data.var(dim=dim)
-        return model_var / obs_var - 1
+        return _vif(self.obs_data, self.model_data, dim=dim)
 
     def compute_mad(self, dim=None):
         """
@@ -850,7 +814,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed MAD values.
         """
-        return (np.abs(self.model_data - self.model_data.median(dim=dim))).median(dim=dim)
+        return _mad(self.obs_data, self.model_data, dim=dim)
 
     def compute_iqr(self, dim=None):
         """
@@ -863,9 +827,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed IQR values.
         """
-        q1 = self.model_data.quantile(0.25, dim=dim)
-        q3 = self.model_data.quantile(0.75, dim=dim)
-        return q3 - q1
+        return _iqr(self.obs_data, self.model_data, dim=dim)
 
     def compute_r2(self, dim=None):
         """
@@ -878,9 +840,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed R^2 values.
         """
-        ssr = ((self.model_data - self.obs_data) ** 2).sum(dim=dim)
-        sst = ((self.obs_data - self.obs_data.mean(dim=dim)) ** 2).sum(dim=dim)
-        return 1 - ssr / sst
+        return _r2(self.obs_data, self.model_data, dim=dim)
 
     def compute_nae(self, dim=None):
         """
@@ -893,9 +853,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed NAE values.
         """
-        abs_error = np.abs(self.model_data - self.obs_data).sum(dim=dim)
-        abs_obs = np.abs(self.obs_data).sum(dim=dim)
-        return abs_error / abs_obs
+        return _nae(self.obs_data, self.model_data, dim=dim)
 
     def compute_rmb(self, dim=None):
         """
@@ -908,9 +866,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed RMB values.
         """
-        bias = (self.model_data - self.obs_data).sum(dim=dim)
-        obs_sum = self.obs_data.sum(dim=dim)
-        return bias / obs_sum
+        return _rmb(self.obs_data, self.model_data, dim=dim)
 
     def compute_mape(self, dim=None):
         """
@@ -923,8 +879,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed MAPE values.
         """
-        abs_percent_error = np.abs((self.model_data - self.obs_data) / self.obs_data)
-        return 100 * abs_percent_error.mean(dim=dim)
+        return _mape(self.obs_data, self.model_data, dim=dim)
 
     def compute_wmae(self, weights, dim=None):
         """
@@ -953,8 +908,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed ASS values.
         """
-        abs_error = np.abs(self.model_data - self.obs_data)
-        return 1 - abs_error / reference_error
+        return _ass(self.obs_data, self.model_data, reference_error, dim=dim)
 
     def compute_rss(self, reference_skill, dim=None):
         """
@@ -968,8 +922,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed RSS values.
         """
-        model_skill = 1 - np.abs(self.model_data - self.obs_data) / self.obs_data
-        return (model_skill - reference_skill) / (1 - reference_skill)
+        return _rss(self.obs_data, self.model_data, reference_skill, dim=dim)
 
     def compute_qss(self, reference_forecast, dim=None):
         """
@@ -998,9 +951,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed NRMSE values.
         """
-        rmse = np.sqrt(((self.model_data - self.obs_data) ** 2).mean(dim=dim))
-        obs_mean = self.obs_data.mean(dim=dim)
-        return rmse / obs_mean
+        return _nrmse(self.obs_data, self.model_data, dim=dim)
 
     def compute_lmbe(self, dim=None):
         """
@@ -1013,7 +964,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed LMBE values.
         """
-        return (np.log(self.model_data + 1) - np.log(self.obs_data + 1)).mean(dim=dim)
+        return _lmbe(self.obs_data, self.model_data, dim=dim)
 
     def compute_smse(self, dim=None):
         """
@@ -1026,9 +977,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed SMSE values.
         """
-        mse = ((self.model_data - self.obs_data) ** 2).mean(dim=dim)
-        obs_var = self.obs_data.var(dim=dim)
-        return mse / obs_var
+        return _smse(self.obs_data, self.model_data, dim=dim)
 
     def compute_mbd(self, dim=None):
         """
@@ -1054,9 +1003,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed GMB values.
         """
-        model_mean = np.exp(np.log(self.model_data).mean(dim=dim))
-        obs_mean = np.exp(np.log(self.obs_data).mean(dim=dim))
-        return model_mean / obs_mean
+        return _gmb(self.obs_data, self.model_data, dim=dim)
 
     def compute_sbs(self, dim=None):
         """
@@ -1069,7 +1016,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed SBS values.
         """
-        return ((self.model_data - self.obs_data) ** 2).mean(dim=dim)
+        return _sbs(self.obs_data, self.model_data, dim=dim)
 
     def compute_aev(self, dim=None):
         """
@@ -1085,9 +1032,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed AEV values.
         """
-        obs_var = self.obs_data.var(dim=dim)
-        err_var = (self.obs_data - self.model_data).var(dim=dim)
-        return 1 - err_var / obs_var
+        return _aev(self.obs_data, self.model_data, dim=dim)
 
     def compute_cosine_similarity(self, dim=None):
         """
@@ -1100,10 +1045,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Cosine Similarity values.
         """
-        dot_product = (self.model_data * self.obs_data).sum(dim=dim)
-        model_norm = np.sqrt((self.model_data ** 2).sum(dim=dim))
-        obs_norm = np.sqrt((self.obs_data ** 2).sum(dim=dim))
-        return dot_product / (model_norm * obs_norm)
+        return _cosine_similarity(self.obs_data, self.model_data, dim=dim)
 
     def compute_f1(self, threshold, dim=None):
         """
@@ -1117,14 +1059,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed F1 Score values.
         """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        tp = ((obs_binary == 1) & (model_binary == 1)).sum(dim=dim)
-        fp = ((obs_binary == 0) & (model_binary == 1)).sum(dim=dim)
-        fn = ((obs_binary == 1) & (model_binary == 0)).sum(dim=dim)
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        return 2 * (precision * recall) / (precision + recall)
+        return _f1(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_mcc(self, threshold, dim=None):
         """
@@ -1160,13 +1095,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed BA values.
         """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        tp = ((obs_binary == 1) & (model_binary == 1)).sum(dim=dim)
-        tn = ((obs_binary == 0) & (model_binary == 0)).sum(dim=dim)
-        fn = ((obs_binary == 1) & (model_binary == 0)).sum(dim=dim)
-        fp = ((obs_binary == 0) & (model_binary == 1)).sum(dim=dim)
-        return 0.5 * ((tp / (tp + fn)) + (tn / (tn + fp)))
+        return _ba(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_npv(self, threshold, dim=None):
         """
@@ -1180,11 +1109,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed NPV values.
         """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        tn = ((obs_binary == 0) & (model_binary == 0)).sum(dim=dim)
-        fn = ((obs_binary == 1) & (model_binary == 0)).sum(dim=dim)
-        return tn / (tn + fn)
+        return _npv(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_jaccard(self, threshold, dim=None):
         """
@@ -1198,11 +1123,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Jaccard Similarity Coefficient values.
         """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        intersection = (obs_binary & model_binary).sum(dim=dim)
-        union = (obs_binary | model_binary).sum(dim=dim)
-        return intersection / union
+        return _jaccard(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_gain(self, threshold, dim=None):
         """
@@ -1236,14 +1157,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Lift values.
         """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        tp = ((obs_binary == 1) & (model_binary == 1)).sum(dim=dim)
-        fp = ((obs_binary == 0) & (model_binary == 1)).sum(dim=dim)
-        fn = ((obs_binary == 1) & (model_binary == 0)).sum(dim=dim)
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        return precision / recall
+        return _lift(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_mkldiv(self, dim=None):
         """
@@ -1302,9 +1216,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Wasserstein Distance values.
         """
-        obs_cdf = self.obs_data.cumsum(dim=dim) / self.obs_data.sum(dim=dim)
-        model_cdf = self.model_data.cumsum(dim=dim) / self.model_data.sum(dim=dim)
-        return np.abs(obs_cdf - model_cdf).sum(dim=dim)
+        return _wasserstein(self.obs_data, self.model_data, dim=dim)
 
     def compute_tv(self, dim=None):
         """
@@ -1362,9 +1274,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Bhattacharyya Distance values.
         """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return -np.log((np.sqrt(obs_prob * model_prob)).sum(dim=dim))
+        return _bhattacharyya(self.obs_data, self.model_data, dim=dim)
 
     def compute_harmonic_mean(self, dim=None):
         """
@@ -1400,19 +1310,18 @@ class NWP_Stats:
 
     def compute_lehmer_mean(self, p, dim=None):
         """
-        Compute the Lehmer Mean.
-        
+        Compute the element-wise Lehmer Mean of order ``p`` between obs and model.
+
+        Note: This is an element-wise combination, not an aggregation over dim.
+
         Args:
             p (float): The power parameter for the Lehmer Mean.
-            dim (str, list, or None): The dimension(s) along which to compute the Lehmer Mean.
-                                      If None, compute the Lehmer Mean over the entire data.
-        
+            dim: Unused, kept for API consistency.
+
         Returns:
-            xarray.DataArray: The computed Lehmer Mean values.
+            xarray.DataArray: Element-wise Lehmer mean of obs and model.
         """
-        obs_pow = self.obs_data ** p
-        model_pow = self.model_data ** p
-        return (obs_pow + model_pow) / (self.obs_data ** (p - 1) + self.model_data ** (p - 1))
+        return _lehmer_mean(self.obs_data, self.model_data, p, dim=dim)
 
     def compute_chernoff(self, alpha, dim=None):
         """
@@ -1426,10 +1335,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Chernoff Distance values.
         """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        
-        return -np.log((obs_prob ** alpha * model_prob ** (1 - alpha)).sum(dim=dim))
+        return _chernoff(self.obs_data, self.model_data, alpha, dim=dim)
 
     def compute_renyi(self, alpha, dim=None):
         """
@@ -1443,9 +1349,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Rényi Divergence values.
         """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return (1 / (alpha - 1)) * np.log((obs_prob ** alpha / model_prob ** (alpha - 1)).sum(dim=dim))
+        return _renyi(self.obs_data, self.model_data, alpha, dim=dim)
 
     def compute_tsallis(self, alpha, dim=None):
         """
@@ -1459,9 +1363,7 @@ class NWP_Stats:
         Returns:
             xarray.DataArray: The computed Tsallis Divergence values.
         """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return (1 / (alpha - 1)) * ((obs_prob ** alpha / model_prob ** (alpha - 1)).sum(dim=dim) - 1)
+        return _tsallis(self.obs_data, self.model_data, alpha, dim=dim)
     
     
     #Further addition of metrics to the code. 
