@@ -1,9 +1,6 @@
 import warnings
 import numpy as np
 import xarray as xr
-import pandas as pd
-from scipy.stats import pearsonr
-import matplotlib.pyplot as plt
 
 from .metrics import (
     acc as _acc,
@@ -41,6 +38,33 @@ from .metrics import (
     renyi as _renyi,
     tsallis as _tsallis,
     evs as _evs,
+    mae as _mae,
+    rmse as _rmse,
+    pcc as _pcc,
+    mbd as _mbd,
+    tse as _tse,
+    fss as _fss,
+    ets as _ets,
+    pod as _pod,
+    far as _far,
+    csi as _csi,
+    bss as _bss,
+    rpss as _rpss,
+    hss as _hss,
+    pss as _pss,
+    fb as _fb,
+    mcc as _mcc,
+    gain as _gain,
+    qss as _qss,
+    wmae as _wmae,
+    harmonic_mean as _harmonic_mean,
+    geometric_mean as _geometric_mean,
+    mkldiv as _mkldiv,
+    jsdiv as _jsdiv,
+    hellinger as _hellinger,
+    tv as _tv,
+    chisquare as _chisquare,
+    intersection as _intersection,
 )
 
 
@@ -111,7 +135,7 @@ class NWP_Stats:
             elif metric == 'RMSE':
                 metric_values[metric] = self.compute_rmse(dim)
             elif metric == 'ACC':
-                metric_values[metric] = self.compute_acc(dim)
+                metric_values[metric] = self.compute_acc(dim=dim)
             elif metric == 'FSS':
                 threshold = thresholds.get('FSS', 0.5)
                 neighborhood_size = thresholds.get('FSS_neighborhood', 3)
@@ -274,36 +298,29 @@ class NWP_Stats:
     def confusion_matrix(self, obs_binary, model_binary, dim=None):
         """
         Compute the confusion matrix for binary classification.
-    
+
+        Delegates to :func:`nwpeval.metrics.confusion_matrix`, which masks
+        NaN entries and always sums (including when ``dim`` is None).
+
         Args:
             obs_binary (xarray.DataArray): The binarized observed data.
             model_binary (xarray.DataArray): The binarized modeled data.
-            dim (str, list, or None): The dimension(s) along which to compute the confusion matrix.
-                                  If None, compute the confusion matrix over the entire data.
-    
+            dim (str, list, or None): Dimension(s) to compute over. If None,
+                sum over the entire array.
+
         Returns:
-            tuple: A tuple containing the confusion matrix values (tn, fp, fn, tp).
+            tuple: (tn, fp, fn, tp).
         """
-        tn = (obs_binary == 0) & (model_binary == 0)
-        fp = (obs_binary == 0) & (model_binary == 1)
-        fn = (obs_binary == 1) & (model_binary == 0)
-        tp = (obs_binary == 1) & (model_binary == 1)
-    
-        if dim is not None:
-            tn = tn.sum(dim=dim)
-            fp = fp.sum(dim=dim)
-            fn = fn.sum(dim=dim)
-            tp = tp.sum(dim=dim)
-    
-        return tn, fp, fn, tp
+        from .metrics._base import confusion_matrix as _confusion_matrix
+        return _confusion_matrix(obs_binary, model_binary, dim=dim)
     
     def compute_mae(self, dim=None):
         """Calculate the Mean Absolute Error (MAE)."""
-        return np.abs(self.obs_data - self.model_data).mean(dim=dim)
+        return _mae(self.obs_data, self.model_data, dim=dim)
 
     def compute_rmse(self, dim=None):
         """Calculate the Root Mean Square Error (RMSE)."""
-        return np.sqrt(((self.obs_data - self.model_data) ** 2).mean(dim=dim))
+        return _rmse(self.obs_data, self.model_data, dim=dim)
 
     def compute_acc(self, climatology=None, dim=None):
         """Calculate the Anomaly Correlation Coefficient (ACC).
@@ -318,233 +335,43 @@ class NWP_Stats:
     def compute_fss(self, threshold, neighborhood_size, spatial_dims=None, reduction_dim=None):
         """
         Compute the Fractions Skill Score (FSS) for a given threshold and neighborhood size.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            neighborhood_size (int): The size of the neighborhood window.
-            spatial_dims (str, list, or None): The spatial dimension(s) for rolling window.
-                                               If None, defaults to ['lat', 'lon'] or ['x', 'y'].
-            reduction_dim (str, list, or None): The dimension(s) along which to reduce
-                                                 after computing fractions.
-        
-        Returns:
-            xarray.DataArray: The computed FSS values.
         """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(float)
-        model_binary = (self.model_data >= threshold).astype(float)
-        
-        # Determine spatial dimensions for rolling
-        if spatial_dims is None:
-            # Try common spatial dimension names
-            dims = list(self.obs_data.dims)
-            if 'lat' in dims and 'lon' in dims:
-                spatial_dims = ['lat', 'lon']
-            elif 'x' in dims and 'y' in dims:
-                spatial_dims = ['x', 'y']
-            elif len(dims) >= 2:
-                spatial_dims = dims[-2:]  # Assume last two are spatial
-            else:
-                spatial_dims = dims  # Use all available dimensions
-        
-        if isinstance(spatial_dims, str):
-            spatial_dims = [spatial_dims]
-        
-        # Create rolling window dict for all spatial dimensions
-        rolling_dict = {d: neighborhood_size for d in spatial_dims if d in self.obs_data.dims}
-        
-        if not rolling_dict:
-            raise ValueError(f"None of the spatial dimensions {spatial_dims} found in data dimensions {list(self.obs_data.dims)}")
-        
-        # Compute the fractions within each neighborhood
-        obs_fractions = obs_binary.rolling(rolling_dict, center=True).mean()
-        model_fractions = model_binary.rolling(rolling_dict, center=True).mean()
-        
-        # Calculate the mean squared error (MSE) of the fractions
-        mse = ((obs_fractions - model_fractions) ** 2).mean(dim=reduction_dim)
-        
-        # Calculate the reference MSE (worst case: no skill)
-        obs_fraction_mean = obs_fractions.mean(dim=reduction_dim)
-        model_fraction_mean = model_fractions.mean(dim=reduction_dim)
-        mse_ref = (obs_fraction_mean ** 2) + (model_fraction_mean ** 2)
-        
-        # Calculate the FSS
-        fss = 1 - mse / mse_ref
-        
-        return fss
+        return _fss(
+            self.obs_data,
+            self.model_data,
+            threshold,
+            neighborhood_size,
+            spatial_dims=spatial_dims,
+            reduction_dim=reduction_dim,
+        )
 
     def compute_ets(self, threshold, dim=None):
-        """
-        Compute the Equitable Threat Score (ETS) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the ETS.
-                                      If None, compute the ETS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed ETS values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the ETS
-        hits_random = (tp + fp) * (tp + fn) / (tp + fp + fn + tn)
-        ets = (tp - hits_random) / (tp + fp + fn - hits_random)
-        
-        return ets
+        """Compute the Equitable Threat Score (ETS) for a given threshold."""
+        return _ets(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_pod(self, threshold, dim=None):
-        """
-        Compute the Probability of Detection (POD) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the POD.
-                                      If None, compute the POD over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed POD values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the POD
-        pod = tp / (tp + fn)
-        
-        return pod
+        """Compute the Probability of Detection (POD) for a given threshold."""
+        return _pod(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_far(self, threshold, dim=None):
-        """
-        Compute the False Alarm Ratio (FAR) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the FAR.
-                                      If None, compute the FAR over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed FAR values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the FAR
-        far = fp / (tp + fp)
-        
-        return far
+        """Compute the False Alarm Ratio (FAR) for a given threshold."""
+        return _far(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_csi(self, threshold, dim=None):
-        """
-        Compute the Critical Success Index (CSI) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the CSI.
-                                      If None, compute the CSI over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed CSI values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the CSI
-        csi = tp / (tp + fp + fn)
-        
-        return csi
+        """Compute the Critical Success Index (CSI) for a given threshold."""
+        return _csi(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_bss(self, threshold, dim=None):
-        """
-        Compute the Brier Skill Score (BSS) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the BSS.
-                                      If None, compute the BSS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed BSS values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(float)
-        
-        # Calculate the Brier score for the model data
-        bs_model = ((self.model_data - obs_binary) ** 2).mean(dim=dim)
-        
-        # Calculate the Brier score for the climatology (base rate forecast)
-        # Climatology forecast = base rate for all points
-        base_rate = obs_binary.mean(dim=dim)
-        bs_climo = ((base_rate - obs_binary) ** 2).mean(dim=dim)
-        
-        # Calculate the BSS
-        bss = 1 - bs_model / bs_climo
-        
-        return bss
+        """Compute the Brier Skill Score (BSS) for a given threshold."""
+        return _bss(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_hss(self, threshold, dim=None):
-        """
-        Compute the Heidke Skill Score (HSS) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the HSS.
-                                      If None, compute the HSS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed HSS values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the HSS
-        hss = 2 * (tp * tn - fp * fn) / ((tp + fn) * (fn + tn) + (tp + fp) * (fp + tn))
-        
-        return hss
+        """Compute the Heidke Skill Score (HSS) for a given threshold."""
+        return _hss(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_pss(self, threshold, dim=None):
-        """
-        Compute the Peirce Skill Score (PSS) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the PSS.
-                                      If None, compute the PSS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed PSS values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the PSS
-        pss = (tp / (tp + fn)) - (fp / (fp + tn))
-        
-        return pss
+        """Compute the Peirce Skill Score (PSS) for a given threshold."""
+        return _pss(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_seds(self, threshold, dim=None):
         """
@@ -561,28 +388,8 @@ class NWP_Stats:
         return _seds(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_fb(self, threshold, dim=None):
-        """
-        Compute the Frequency Bias (FB) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the FB.
-                                      If None, compute the FB over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed FB values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        
-        # Calculate the confusion matrix
-        tn, fp, fn, tp = self.confusion_matrix(obs_binary, model_binary, dim)
-        
-        # Calculate the FB
-        fb = (tp + fp) / (tp + fn)
-        
-        return fb
+        """Compute the Frequency Bias (FB) for a given threshold."""
+        return _fb(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_gss(self, threshold, dim=None):
         """
@@ -648,49 +455,12 @@ class NWP_Stats:
         return _sedi(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_rpss(self, threshold, dim=None):
-        """
-        Compute the Ranked Probability Skill Score (RPSS) for a given threshold.
-        
-        Note: RPSS is traditionally used for multi-category probabilistic forecasts.
-        This implementation provides a simplified binary version similar to BSS.
-    
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the RPSS.
-                                  If None, compute the RPSS over the entire data.
-    
-        Returns:
-            xarray.DataArray: The computed RPSS values.
-        """
-        # Convert data to binary based on the threshold
-        obs_binary = (self.obs_data >= threshold).astype(float)
-        model_binary = (self.model_data >= threshold).astype(float)
-    
-        # For binary case, RPS reduces to Brier Score
-        # Calculate the RPS for the model data
-        rps_model = ((model_binary - obs_binary) ** 2).mean(dim=dim)
-    
-        # Calculate the RPS for the climatology (base rate)
-        base_rate = obs_binary.mean(dim=dim)
-        rps_climo = ((base_rate - obs_binary) ** 2).mean(dim=dim)
-    
-        # Calculate the RPSS
-        rpss = 1 - rps_model / rps_climo
-    
-        return rpss
+        """Compute the Ranked Probability Skill Score (RPSS) for a given threshold."""
+        return _rpss(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_tse(self, dim=None):
-        """
-        Compute the Total Squared Error (TSE).
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the TSE.
-                                      If None, compute the TSE over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed TSE values.
-        """
-        return ((self.model_data - self.obs_data) ** 2).sum(dim=dim)
+        """Compute the Total Squared Error (TSE)."""
+        return _tse(self.obs_data, self.model_data, dim=dim)
 
     def compute_evs(self, dim=None):
         """
@@ -732,17 +502,8 @@ class NWP_Stats:
         return _fv(self.obs_data, self.model_data, dim=dim)
 
     def compute_pcc(self, dim=None):
-        """
-        Compute the Pearson Correlation Coefficient (PCC).
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the PCC.
-                                      If None, compute the PCC over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed PCC values.
-        """
-        return xr.corr(self.model_data, self.obs_data, dim=dim)
+        """Compute the Pearson Correlation Coefficient (PCC)."""
+        return _pcc(self.obs_data, self.model_data, dim=dim)
 
     def compute_sdr(self, dim=None):
         """
@@ -849,19 +610,8 @@ class NWP_Stats:
         return _mape(self.obs_data, self.model_data, dim=dim)
 
     def compute_wmae(self, weights, dim=None):
-        """
-        Compute the Weighted Mean Absolute Error (WMAE).
-        
-        Args:
-            weights (xarray.DataArray): The weights for each data point.
-            dim (str, list, or None): The dimension(s) along which to compute the WMAE.
-                                      If None, compute the WMAE over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed WMAE values.
-        """
-        weighted_abs_error = weights * np.abs(self.model_data - self.obs_data)
-        return weighted_abs_error.sum(dim=dim) / weights.sum(dim=dim)
+        """Compute the Weighted Mean Absolute Error (WMAE)."""
+        return _wmae(self.obs_data, self.model_data, weights, dim=dim)
 
     def compute_ass(self, reference_error, dim=None):
         """
@@ -892,20 +642,8 @@ class NWP_Stats:
         return _rss(self.obs_data, self.model_data, reference_skill, dim=dim)
 
     def compute_qss(self, reference_forecast, dim=None):
-        """
-        Compute the Quadratic Skill Score (QSS).
-        
-        Args:
-            reference_forecast (xarray.DataArray): The reference forecast values.
-            dim (str, list, or None): The dimension(s) along which to compute the QSS.
-                                      If None, compute the QSS over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed QSS values.
-        """
-        mse_model = ((self.model_data - self.obs_data) ** 2).mean(dim=dim)
-        mse_ref = ((reference_forecast - self.obs_data) ** 2).mean(dim=dim)
-        return 1 - mse_model / mse_ref
+        """Compute the Quadratic Skill Score (QSS)."""
+        return _qss(self.obs_data, self.model_data, reference_forecast, dim=dim)
 
     def compute_nrmse(self, dim=None):
         """
@@ -947,17 +685,8 @@ class NWP_Stats:
         return _smse(self.obs_data, self.model_data, dim=dim)
 
     def compute_mbd(self, dim=None):
-        """
-        Compute the Mean Bias Deviation (MBD).
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the MBD.
-                                      If None, compute the MBD over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed MBD values.
-        """
-        return self.model_data.mean(dim=dim) - self.obs_data.mean(dim=dim)
+        """Compute the Mean Bias Deviation (MBD)."""
+        return _mbd(self.obs_data, self.model_data, dim=dim)
 
     def compute_gmb(self, dim=None):
         """
@@ -1029,26 +758,8 @@ class NWP_Stats:
         return _f1(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_mcc(self, threshold, dim=None):
-        """
-        Compute the Matthews Correlation Coefficient (MCC) for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the MCC.
-                                      If None, compute the MCC over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed MCC values.
-        """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        tp = ((obs_binary == 1) & (model_binary == 1)).sum(dim=dim)
-        tn = ((obs_binary == 0) & (model_binary == 0)).sum(dim=dim)
-        fp = ((obs_binary == 0) & (model_binary == 1)).sum(dim=dim)
-        fn = ((obs_binary == 1) & (model_binary == 0)).sum(dim=dim)
-        mcc_numerator = (tp * tn) - (fp * fn)
-        mcc_denominator = np.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
-        return mcc_numerator / mcc_denominator
+        """Compute the Matthews Correlation Coefficient (MCC) for a given threshold."""
+        return _mcc(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_ba(self, threshold, dim=None):
         """
@@ -1087,24 +798,8 @@ class NWP_Stats:
         return self.compute_csi(threshold, dim)
 
     def compute_gain(self, threshold, dim=None):
-        """
-        Compute the Gain for a given threshold.
-        
-        Args:
-            threshold (float): The threshold value for binary classification.
-            dim (str, list, or None): The dimension(s) along which to compute the Gain.
-                                      If None, compute the Gain over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed Gain values.
-        """
-        obs_binary = (self.obs_data >= threshold).astype(int)
-        model_binary = (self.model_data >= threshold).astype(int)
-        tp = ((obs_binary == 1) & (model_binary == 1)).sum(dim=dim)
-        fp = ((obs_binary == 0) & (model_binary == 1)).sum(dim=dim)
-        tn = ((obs_binary == 0) & (model_binary == 0)).sum(dim=dim)
-        fn = ((obs_binary == 1) & (model_binary == 0)).sum(dim=dim)
-        return (tp + tn) / (tp + fp + tn + fn)
+        """Compute the Gain for a given threshold."""
+        return _gain(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_lift(self, threshold, dim=None):
         """
@@ -1121,50 +816,16 @@ class NWP_Stats:
         return _lift(self.obs_data, self.model_data, threshold, dim=dim)
 
     def compute_mkldiv(self, dim=None):
-        """
-        Compute the Mean Kullback-Leibler Divergence (MKLDIV).
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the MKLDIV.
-                                      If None, compute the MKLDIV over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed MKLDIV values.
-        """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return (obs_prob * np.log(obs_prob / model_prob)).sum(dim=dim)
+        """Compute the Mean Kullback-Leibler Divergence (MKLDIV)."""
+        return _mkldiv(self.obs_data, self.model_data, dim=dim)
 
     def compute_jsdiv(self, dim=None):
-        """
-        Compute the Jensen-Shannon Divergence (JSDIV).
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the JSDIV.
-                                      If None, compute the JSDIV over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed JSDIV values.
-        """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        m = 0.5 * (obs_prob + model_prob)
-        return 0.5 * ((obs_prob * np.log(obs_prob / m)).sum(dim=dim) + (model_prob * np.log(model_prob / m)).sum(dim=dim))
+        """Compute the Jensen-Shannon Divergence (JSDIV)."""
+        return _jsdiv(self.obs_data, self.model_data, dim=dim)
 
     def compute_hellinger(self, dim=None):
-        """
-        Compute the Hellinger Distance.
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the Hellinger Distance.
-                                      If None, compute the Hellinger Distance over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed Hellinger Distance values.
-        """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return np.sqrt(0.5 * ((np.sqrt(obs_prob) - np.sqrt(model_prob)) ** 2).sum(dim=dim))
+        """Compute the Hellinger Distance."""
+        return _hellinger(self.obs_data, self.model_data, dim=dim)
 
     def compute_wasserstein(self, dim=None):
         """
@@ -1180,49 +841,16 @@ class NWP_Stats:
         return _wasserstein(self.obs_data, self.model_data, dim=dim)
 
     def compute_tv(self, dim=None):
-        """
-        Compute the Total Variation Distance.
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the Total Variation Distance.
-                                      If None, compute the Total Variation Distance over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed Total Variation Distance values.
-        """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return 0.5 * np.abs(obs_prob - model_prob).sum(dim=dim)
+        """Compute the Total Variation Distance."""
+        return _tv(self.obs_data, self.model_data, dim=dim)
 
     def compute_chisquare(self, dim=None):
-        """
-        Compute the Chi-Square Distance.
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the Chi-Square Distance.
-                                      If None, compute the Chi-Square Distance over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed Chi-Square Distance values.
-        """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return ((obs_prob - model_prob) ** 2 / model_prob).sum(dim=dim)
+        """Compute the Chi-Square Distance."""
+        return _chisquare(self.obs_data, self.model_data, dim=dim)
 
     def compute_intersection(self, dim=None):
-        """
-        Compute the Intersection.
-        
-        Args:
-            dim (str, list, or None): The dimension(s) along which to compute the Intersection.
-                                      If None, compute the Intersection over the entire data.
-        
-        Returns:
-            xarray.DataArray: The computed Intersection values.
-        """
-        obs_prob = self.obs_data / self.obs_data.sum(dim=dim)
-        model_prob = self.model_data / self.model_data.sum(dim=dim)
-        return np.minimum(obs_prob, model_prob).sum(dim=dim)
+        """Compute the histogram-intersection similarity."""
+        return _intersection(self.obs_data, self.model_data, dim=dim)
 
     def compute_bhattacharyya(self, dim=None):
         """
@@ -1238,36 +866,12 @@ class NWP_Stats:
         return _bhattacharyya(self.obs_data, self.model_data, dim=dim)
 
     def compute_harmonic_mean(self, dim=None):
-        """
-        Compute the element-wise Harmonic Mean between obs and model data.
-        
-        This returns 2 / (1/obs + 1/model) for each corresponding element.
-        Note: This is an element-wise combination, not an aggregation over dim.
-        
-        Args:
-            dim: Unused, kept for API consistency.
-        
-        Returns:
-            xarray.DataArray: Element-wise harmonic mean of obs and model.
-        """
-        obs_inv = 1 / self.obs_data
-        model_inv = 1 / self.model_data
-        return 2 / (obs_inv + model_inv)
+        """Compute the element-wise Harmonic Mean between obs and model data."""
+        return _harmonic_mean(self.obs_data, self.model_data, dim=dim)
 
     def compute_geometric_mean(self, dim=None):
-        """
-        Compute the element-wise Geometric Mean between obs and model data.
-        
-        This returns sqrt(obs * model) for each corresponding element.
-        Note: This is an element-wise combination, not an aggregation over dim.
-        
-        Args:
-            dim: Unused, kept for API consistency.
-        
-        Returns:
-            xarray.DataArray: Element-wise geometric mean of obs and model.
-        """
-        return np.sqrt(self.obs_data * self.model_data)
+        """Compute the element-wise Geometric Mean between obs and model data."""
+        return _geometric_mean(self.obs_data, self.model_data, dim=dim)
 
     def compute_lehmer_mean(self, p, dim=None):
         """

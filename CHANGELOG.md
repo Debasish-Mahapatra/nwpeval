@@ -1,5 +1,51 @@
 # Changelog
 
+## Version 1.6.2 (2026-05-05)
+
+### Bug fixes
+- Mathematical / formula corrections
+  - EDS: corrected sign error in numerator
+  - SEDS: replaced non-canonical formula with `[log(p) + log(p_F)] / log(s) - 1`
+  - Lift: now `precision / base_rate` (was its reciprocal)
+  - MAD and IQR: now operate on residuals (model - obs); previously ignored obs
+  - AEV: implemented degrees-of-freedom adjustment (was a copy of EVS)
+  - Wasserstein: now W1 over sorted samples (was treating array index as bins)
+  - Symmetric Brier Score: now operates on probabilistic forecast vs binary obs
+- Zero-division and zero-variance guards added to: F1, BA, NPV, Jaccard,
+  Gain, QSS, WMAE, R2, NRMSE, NMSE, RMB, NAE, MAPE, EVS, FV, SDR, VIF,
+  SMSE, ORSS, cosine similarity, ACC.
+- Distributional metric input validation (mkldiv, jsdiv, hellinger, tv,
+  chisquare, intersection, bhattacharyya, chernoff, renyi, tsallis, gmb)
+  now reject negative inputs and guard zero totals; renyi and tsallis raise
+  on alpha == 1.
+- ASS and RSS now respect the `dim` argument.
+- ACC implementation now matches its docstring (uncentred anomaly form).
+- Confusion matrix now masks NaN cells via `notnull()`.
+- Harmonic mean and geometric mean now handle zeros and negatives.
+- Fix dispatcher passing `dim` as `climatology` to `compute_acc`.
+
+### Refactor
+- Three pairs of duplicate metrics consolidated into aliases:
+  GSS -> ETS, HKD -> PSS, Jaccard -> CSI.
+- All `NWP_Stats.compute_*` methods now delegate to the standalone metric
+  functions, eliminating duplicated bugs in the legacy class.
+- Legacy `NWP_Stats.confusion_matrix` delegates to the canonical helper.
+
+### Data loading
+- `nwpeval.utils.load_data` now supports HDF5 files (`.h5`, `.hdf5`,
+  `.hdf`) via the `h5netcdf` engine.
+- GRIB import check now correctly verifies `cfgrib` (the runtime engine)
+  instead of the unused `pygrib`.
+- Both optional engines are imported lazily.
+
+### Packaging
+- `pygrib` removed from hard dependencies; `cfgrib` and `h5netcdf` moved
+  to `extras_require` (`pip install nwpeval[grib]`, `[hdf5]`, `[all]`).
+- `requirements.txt` cleaned up: removed unused `scikit-learn` and
+  `pygrib`; added `scipy`, `pandas`, `matplotlib` that the code actually
+  imports.
+- Python 3.10-3.12 added to classifiers; 3.6-3.7 removed.
+
 ## Version 1.6.0 (2024-12-05)
 
 ### New Features

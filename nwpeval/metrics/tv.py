@@ -1,19 +1,27 @@
 """Total Variation Distance."""
 import numpy as np
+import xarray as xr
 
 
 def tv(obs_data, model_data, dim=None):
     """
-    Compute the Total Variation Distance.
-    
+    Compute the Total Variation distance between two empirical distributions.
+
+    TV(P, Q) = 0.5 * sum(|p - q|) where P and Q are probability distributions
+    formed by normalising the inputs over `dim`. Inputs must be non-negative.
+
     Args:
-        obs_data (xarray.DataArray): The observed data.
-        model_data (xarray.DataArray): The modeled data.
+        obs_data (xarray.DataArray): The observed data (must be >= 0).
+        model_data (xarray.DataArray): The modeled data (must be >= 0).
         dim (str, list, or None): Dimension(s) to compute over.
-    
+
     Returns:
-        xarray.DataArray: The computed Total Variation Distance values.
+        xarray.DataArray: The total variation distance.
     """
-    obs_prob = obs_data / obs_data.sum(dim=dim)
-    model_prob = model_data / model_data.sum(dim=dim)
+    obs_safe = xr.where(obs_data >= 0, obs_data, np.nan)
+    model_safe = xr.where(model_data >= 0, model_data, np.nan)
+    obs_total = obs_safe.sum(dim=dim)
+    model_total = model_safe.sum(dim=dim)
+    obs_prob = xr.where(obs_total == 0, np.nan, obs_safe / obs_total)
+    model_prob = xr.where(model_total == 0, np.nan, model_safe / model_total)
     return 0.5 * np.abs(obs_prob - model_prob).sum(dim=dim)
