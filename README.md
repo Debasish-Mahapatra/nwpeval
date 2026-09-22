@@ -89,6 +89,8 @@ A full worked example (threshold x neighbourhood table, useful-skill level,
 percentile thresholds, diurnal cycle, heatmap) is in
 [examples/example_fss.py](examples/example_fss.py).
 
+![FSS by rain threshold and neighbourhood width, from examples/example_fss.py](examples/fss_heatmap.png)
+
 #### Example: Distribution comparison metrics
 ```python
 from nwpeval import mkldiv, jsdiv, hellinger, wasserstein
