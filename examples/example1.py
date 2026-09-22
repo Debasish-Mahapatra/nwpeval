@@ -1,9 +1,11 @@
 import numpy as np
+import xarray as xr
 from nwpeval import NWP_Stats
 
-# Generate sample observed and modeled data
-obs_data = np.random.rand(100, 100)
-model_data = np.random.rand(100, 100)
+# Generate sample observed and modeled data. nwpeval works on xarray
+# DataArrays, so wrap numpy arrays with named dimensions.
+obs_data = xr.DataArray(np.random.rand(100, 100), dims=("lat", "lon"))
+model_data = xr.DataArray(np.random.rand(100, 100), dims=("lat", "lon"))
 
 # Create an instance of the NWPMetrics class
 metrics = NWP_Stats(obs_data, model_data)
@@ -34,8 +36,8 @@ thresholds = {
 }
 
 # Compute the metrics
-metric_values = metrics.compute_metrics(metrics_to_compute, thresholds)
+metric_values = metrics.compute_metrics(metrics_to_compute, thresholds=thresholds)
 
 # Print the computed metric values
 for metric, value in metric_values.items():
-    print(f"{metric}: {value:.4f}")
+    print(f"{metric}: {float(value):.4f}")
