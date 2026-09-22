@@ -1,6 +1,7 @@
 """Harmonic Mean (element-wise between obs and model)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def harmonic_mean(obs_data, model_data, dim=None):
@@ -19,5 +20,6 @@ def harmonic_mean(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: Element-wise harmonic mean of obs and model.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     total = obs_data + model_data
     return xr.where(total == 0, np.nan, 2 * obs_data * model_data / total)

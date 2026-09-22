@@ -1,6 +1,7 @@
 """Tsallis Divergence."""
 import numpy as np
 import xarray as xr
+from ._base import distributions
 
 
 def tsallis(obs_data, model_data, alpha, dim=None):
@@ -8,6 +9,9 @@ def tsallis(obs_data, model_data, alpha, dim=None):
     Compute the Tsallis Divergence of order alpha (alpha != 1).
 
     D_alpha(P || Q) = 1/(alpha - 1) * (sum(p^alpha * q^(1-alpha)) - 1)
+
+    Points missing (NaN) or negative in either input are dropped from both
+    distributions, so P and Q always cover the same bins.
 
     Args:
         obs_data (xarray.DataArray): The observed data (must be >= 0).
@@ -21,11 +25,7 @@ def tsallis(obs_data, model_data, alpha, dim=None):
     if alpha == 1:
         raise ValueError("Tsallis divergence is undefined at alpha == 1.")
     eps = np.finfo(float).tiny
-    obs_safe = xr.where(obs_data >= 0, obs_data, np.nan)
-    model_safe = xr.where(model_data > 0, model_data, eps)
-    obs_total = obs_safe.sum(dim=dim)
-    model_total = model_safe.sum(dim=dim)
-    obs_prob = xr.where(obs_total == 0, np.nan, obs_safe / obs_total)
-    model_prob = xr.where(model_total == 0, np.nan, model_safe / model_total)
-    inner = (obs_prob ** alpha * model_prob ** (1 - alpha)).sum(dim=dim)
+    obs_prob, model_prob = distributions(obs_data, model_data, dim)
+    model_prob = xr.where(model_prob == 0, eps, model_prob)
+    inner = (obs_prob ** alpha * model_prob ** (1 - alpha)).sum(dim=dim, min_count=1)
     return (inner - 1) / (alpha - 1)

@@ -1,6 +1,7 @@
 """Mean Kullback-Leibler Divergence (MKLDIV)."""
 import numpy as np
 import xarray as xr
+from ._base import distributions
 
 
 def mkldiv(obs_data, model_data, dim=None):
@@ -12,6 +13,9 @@ def mkldiv(obs_data, model_data, dim=None):
     Where p > 0 and q == 0 the divergence is +inf; where p == 0 the term
     contributes 0 (by convention 0 * log(0) = 0).
 
+    Points missing (NaN) or negative in either input are dropped from both
+    distributions, so P and Q always cover the same bins.
+
     Args:
         obs_data (xarray.DataArray): The observed data (must be >= 0).
         model_data (xarray.DataArray): The modeled data (must be >= 0).
@@ -20,15 +24,10 @@ def mkldiv(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The KL divergence.
     """
-    obs_safe = xr.where(obs_data >= 0, obs_data, np.nan)
-    model_safe = xr.where(model_data >= 0, model_data, np.nan)
-    obs_total = obs_safe.sum(dim=dim)
-    model_total = model_safe.sum(dim=dim)
-    obs_prob = xr.where(obs_total == 0, np.nan, obs_safe / obs_total)
-    model_prob = xr.where(model_total == 0, np.nan, model_safe / model_total)
+    obs_prob, model_prob = distributions(obs_data, model_data, dim)
 
     ratio = xr.where(model_prob == 0, np.inf, obs_prob / model_prob)
     log_ratio = xr.where(obs_prob == 0, 0.0, np.log(xr.where(ratio > 0, ratio, 1.0)))
     term = xr.where(obs_prob == 0, 0.0, obs_prob * log_ratio)
     term = xr.where((obs_prob > 0) & (model_prob == 0), np.inf, term)
-    return term.sum(dim=dim)
+    return term.sum(dim=dim, min_count=1)

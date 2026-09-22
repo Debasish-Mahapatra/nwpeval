@@ -1,5 +1,6 @@
 """Median Absolute Deviation (MAD) of residuals."""
 import numpy as np
+from ._base import paired
 
 
 def mad(obs_data, model_data, dim=None):
@@ -17,5 +18,6 @@ def mad(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed MAD values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     residuals = model_data - obs_data
     return np.abs(residuals - residuals.median(dim=dim)).median(dim=dim)

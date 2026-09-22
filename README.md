@@ -162,6 +162,19 @@ results = nwp_stats.compute_metrics(metrics, dim=dimensions)
 
 ---
 
+## Missing Data and Aggregation
+
+- `obs` and `model` must share identical coordinates; a mismatch raises a
+  `ValueError` rather than silently dropping points.
+- NaN is missing in every metric: a point missing in either input is dropped
+  from both, and never counted as a correct "no event".
+- A score that is undefined (e.g. POD with no observed event) is NaN, not 0.
+- Aggregate ratio scores (POD, FAR, CSI, ETS, FSS, ...) by pooling counts with
+  `dim`, not by averaging per-time-step scores. See the
+  [documentation](docs/NWPeval_Documentation.md#missing-data-alignment-and-aggregation).
+
+---
+
 ## Available Metrics
 
 | Category | Metrics |

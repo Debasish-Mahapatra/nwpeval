@@ -1,6 +1,6 @@
 """Geometric Mean Bias (GMB)."""
 import numpy as np
-import xarray as xr
+from ._base import paired, ratio
 
 
 def gmb(obs_data, model_data, dim=None):
@@ -10,8 +10,8 @@ def gmb(obs_data, model_data, dim=None):
     GMB = exp(mean(log(model))) / exp(mean(log(obs)))
         = geometric_mean(model) / geometric_mean(obs).
 
-    Inputs must be strictly positive. Non-positive values are masked to NaN
-    so they do not silently produce -inf or warnings under log.
+    Inputs must be strictly positive. A pair where either value is
+    non-positive (or missing) is dropped from both means.
 
     Args:
         obs_data (xarray.DataArray): The observed data (must be > 0).
@@ -21,8 +21,8 @@ def gmb(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed GMB values.
     """
-    obs_safe = xr.where(obs_data > 0, obs_data, np.nan)
-    model_safe = xr.where(model_data > 0, model_data, np.nan)
-    model_geom = np.exp(np.log(model_safe).mean(dim=dim, skipna=True))
-    obs_geom = np.exp(np.log(obs_safe).mean(dim=dim, skipna=True))
-    return xr.where(obs_geom == 0, np.nan, model_geom / obs_geom)
+    obs_data, model_data = paired(obs_data, model_data)
+    positive = (obs_data > 0) & (model_data > 0)
+    model_geom = np.exp(np.log(model_data.where(positive)).mean(dim=dim))
+    obs_geom = np.exp(np.log(obs_data.where(positive)).mean(dim=dim))
+    return ratio(model_geom, obs_geom)

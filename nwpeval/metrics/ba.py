@@ -1,7 +1,5 @@
 """Balanced Accuracy (BA)."""
-import numpy as np
-import xarray as xr
-from ._base import confusion_matrix
+from ._base import contingency, ratio
 
 
 def ba(obs_data, model_data, threshold, dim=None):
@@ -10,6 +8,9 @@ def ba(obs_data, model_data, threshold, dim=None):
 
     BA = 0.5 * (TPR + TNR) where TPR = TP/(TP+FN) and TNR = TN/(TN+FP).
 
+    An event is ``value >= threshold``. Points missing (NaN) in either input
+    are excluded from the contingency table.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.
@@ -17,13 +18,8 @@ def ba(obs_data, model_data, threshold, dim=None):
         dim (str, list, or None): Dimension(s) to compute over.
 
     Returns:
-        xarray.DataArray: The computed BA values.
+        xarray.DataArray: The computed BA values. NaN where no event
+        or no non-event was observed.
     """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-
-    tpr = xr.where((tp + fn) == 0, np.nan, tp / (tp + fn))
-    tnr = xr.where((tn + fp) == 0, np.nan, tn / (tn + fp))
-    return 0.5 * (tpr + tnr)
+    tn, fp, fn, tp = contingency(obs_data, model_data, threshold, dim)
+    return 0.5 * (ratio(tp, tp + fn) + ratio(tn, tn + fp))

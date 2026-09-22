@@ -1,5 +1,6 @@
 """Pearson Correlation Coefficient (PCC)."""
 import xarray as xr
+from ._base import paired
 
 
 def pcc(obs_data, model_data, dim=None):
@@ -14,4 +15,5 @@ def pcc(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed PCC values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     return xr.corr(model_data, obs_data, dim=dim)

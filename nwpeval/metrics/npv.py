@@ -1,7 +1,5 @@
 """Negative Predictive Value (NPV)."""
-import numpy as np
-import xarray as xr
-from ._base import confusion_matrix
+from ._base import contingency, ratio
 
 
 def npv(obs_data, model_data, threshold, dim=None):
@@ -10,6 +8,9 @@ def npv(obs_data, model_data, threshold, dim=None):
 
     NPV = TN / (TN + FN).
 
+    An event is ``value >= threshold``. Points missing (NaN) in either input
+    are excluded from the contingency table.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.
@@ -17,11 +18,8 @@ def npv(obs_data, model_data, threshold, dim=None):
         dim (str, list, or None): Dimension(s) to compute over.
 
     Returns:
-        xarray.DataArray: The computed NPV values.
+        xarray.DataArray: The computed NPV values. NaN where no
+        non-event was forecast.
     """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-
-    return xr.where((tn + fn) == 0, np.nan, tn / (tn + fn))
+    tn, fp, fn, tp = contingency(obs_data, model_data, threshold, dim)
+    return ratio(tn, tn + fn)

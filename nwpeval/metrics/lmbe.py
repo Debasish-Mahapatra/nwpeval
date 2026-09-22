@@ -1,5 +1,6 @@
 """Logarithmic Mean Bias Error (LMBE)."""
 import numpy as np
+from ._base import paired
 
 
 def lmbe(obs_data, model_data, dim=None):
@@ -19,4 +20,5 @@ def lmbe(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed LMBE values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     return (np.log1p(model_data) - np.log1p(obs_data)).mean(dim=dim)

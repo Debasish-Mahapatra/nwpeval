@@ -1,6 +1,7 @@
 """Standard Deviation Ratio (SDR)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def sdr(obs_data, model_data, dim=None):
@@ -18,6 +19,7 @@ def sdr(obs_data, model_data, dim=None):
         xarray.DataArray: The computed SDR values. Returns NaN where the
         observation standard deviation is zero.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     obs_std = obs_data.std(dim=dim)
     model_std = model_data.std(dim=dim)
     return xr.where(obs_std == 0, np.nan, model_std / obs_std)

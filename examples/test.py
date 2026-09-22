@@ -26,10 +26,16 @@ metrics_time_avg = {}
 for metric, threshold in thresholds.items():
     metrics_time_avg[metric] = metrics_obj.compute_metrics([metric], thresholds={metric: threshold}, dim="time")[metric]
 
-# Calculate area-average diurnal cycle metrics
+# Calculate area-average diurnal cycle metrics. The scores are ratios of
+# contingency-table counts, so pool the counts over space and all days at each
+# hour rather than averaging per-time-step scores.
+metric_functions = {'SEDS': nw.seds, 'SEDI': nw.sedi, 'RPSS': nw.rpss}
+pairs = xr.Dataset({"obs": obs_lightning, "model": model_lightning})
 metrics_diurnal = {}
 for metric, threshold in thresholds.items():
-    metrics_diurnal[metric] = metrics_obj.compute_metrics([metric], thresholds={metric: threshold}, dim=["lat", "lon"])[metric].groupby("time.hour").mean()
+    metrics_diurnal[metric] = pairs.groupby("time.hour").map(
+        lambda g: metric_functions[metric](g.obs, g.model, threshold)
+    )
 
 # Plot time-averaged metrics
 fig, axs = plt.subplots(1, 3, figsize=(18, 6))

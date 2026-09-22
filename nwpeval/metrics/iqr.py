@@ -1,4 +1,5 @@
 """Interquartile Range (IQR) of residuals."""
+from ._base import paired
 
 
 def iqr(obs_data, model_data, dim=None):
@@ -16,6 +17,7 @@ def iqr(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed IQR values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     residuals = model_data - obs_data
     q1 = residuals.quantile(0.25, dim=dim)
     q3 = residuals.quantile(0.75, dim=dim)

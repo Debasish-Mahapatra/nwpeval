@@ -1,6 +1,7 @@
 """Normalized Mean Squared Error (NMSE)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def nmse(obs_data, model_data, dim=None):
@@ -18,6 +19,7 @@ def nmse(obs_data, model_data, dim=None):
         xarray.DataArray: The computed NMSE values. Returns NaN where the
         observation mean is zero.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     mse = ((model_data - obs_data) ** 2).mean(dim=dim)
     obs_mean = obs_data.mean(dim=dim)
     return xr.where(obs_mean == 0, np.nan, mse / (obs_mean ** 2))

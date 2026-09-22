@@ -1,5 +1,6 @@
 """Root Mean Square Error (RMSE)."""
 import numpy as np
+from ._base import paired
 
 
 def rmse(obs_data, model_data, dim=None):
@@ -14,4 +15,5 @@ def rmse(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed RMSE values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     return np.sqrt(((obs_data - model_data) ** 2).mean(dim=dim))

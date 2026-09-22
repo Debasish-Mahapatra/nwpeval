@@ -1,6 +1,5 @@
 """Quadratic Skill Score (QSS)."""
-import numpy as np
-import xarray as xr
+from ._base import paired, ratio
 
 
 def qss(obs_data, model_data, reference_forecast, dim=None):
@@ -19,6 +18,7 @@ def qss(obs_data, model_data, reference_forecast, dim=None):
         xarray.DataArray: The computed QSS values. Returns NaN where the
         reference MSE is zero (the reference is itself a perfect forecast).
     """
+    obs_data, model_data, reference_forecast = paired(obs_data, model_data, reference_forecast)
     mse_model = ((model_data - obs_data) ** 2).mean(dim=dim)
     mse_ref = ((reference_forecast - obs_data) ** 2).mean(dim=dim)
-    return xr.where(mse_ref == 0, np.nan, 1 - mse_model / mse_ref)
+    return 1 - ratio(mse_model, mse_ref)

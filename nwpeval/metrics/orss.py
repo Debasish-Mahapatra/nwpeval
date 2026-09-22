@@ -1,7 +1,5 @@
 """Odds Ratio Skill Score (ORSS)."""
-import numpy as np
-import xarray as xr
-from ._base import confusion_matrix
+from ._base import contingency, ratio
 
 
 def orss(obs_data, model_data, threshold, dim=None):
@@ -10,6 +8,9 @@ def orss(obs_data, model_data, threshold, dim=None):
 
     ORSS = (TP*TN - FP*FN) / (TP*TN + FP*FN).
 
+    An event is ``value >= threshold``. Points missing (NaN) in either input
+    are excluded from the contingency table.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.
@@ -17,13 +18,8 @@ def orss(obs_data, model_data, threshold, dim=None):
         dim (str, list, or None): Dimension(s) to compute over.
 
     Returns:
-        xarray.DataArray: The computed ORSS values.
+        xarray.DataArray: The computed ORSS values. NaN where the
+        denominator is zero.
     """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-
-    numerator = tp * tn - fp * fn
-    denominator = tp * tn + fp * fn
-    return xr.where(denominator == 0, np.nan, numerator / denominator)
+    tn, fp, fn, tp = contingency(obs_data, model_data, threshold, dim)
+    return ratio(tp * tn - fp * fn, tp * tn + fp * fn)

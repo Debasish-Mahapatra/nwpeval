@@ -1,6 +1,7 @@
 """Mean Absolute Percentage Error (MAPE)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def mape(obs_data, model_data, dim=None):
@@ -18,6 +19,7 @@ def mape(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed MAPE values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     valid = obs_data != 0
     obs_safe = xr.where(valid, obs_data, np.nan)
     abs_percent_error = np.abs((model_data - obs_data) / obs_safe)

@@ -1,12 +1,15 @@
 """F1 Score."""
-import numpy as np
-import xarray as xr
-from ._base import confusion_matrix
+from ._base import contingency, ratio
 
 
 def f1(obs_data, model_data, threshold, dim=None):
     """
     Compute the F1 Score for a given threshold.
+
+    F1 = 2 TP / (2 TP + FP + FN), the harmonic mean of precision and recall.
+
+    An event is ``value >= threshold``. Points missing (NaN) in either input
+    are excluded from the contingency table.
 
     Args:
         obs_data (xarray.DataArray): The observed data.
@@ -15,14 +18,8 @@ def f1(obs_data, model_data, threshold, dim=None):
         dim (str, list, or None): Dimension(s) to compute over.
 
     Returns:
-        xarray.DataArray: The computed F1 Score values.
+        xarray.DataArray: The computed F1 values. NaN where no event
+        was observed or forecast.
     """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-
-    precision = xr.where((tp + fp) == 0, np.nan, tp / (tp + fp))
-    recall = xr.where((tp + fn) == 0, np.nan, tp / (tp + fn))
-    denom = precision + recall
-    return xr.where(denom == 0, 0.0, 2 * (precision * recall) / denom)
+    tn, fp, fn, tp = contingency(obs_data, model_data, threshold, dim)
+    return ratio(2 * tp, 2 * tp + fp + fn)

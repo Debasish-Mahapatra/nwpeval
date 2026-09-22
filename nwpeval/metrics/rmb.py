@@ -1,6 +1,7 @@
 """Relative Mean Bias (RMB)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def rmb(obs_data, model_data, dim=None):
@@ -18,6 +19,7 @@ def rmb(obs_data, model_data, dim=None):
         xarray.DataArray: The computed RMB values. Returns NaN where the
         observation sum is zero.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     bias = (model_data - obs_data).sum(dim=dim)
     obs_sum = obs_data.sum(dim=dim)
     return xr.where(obs_sum == 0, np.nan, bias / obs_sum)

@@ -1,6 +1,7 @@
 """Coefficient of Determination (R^2)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def r2(obs_data, model_data, dim=None):
@@ -16,6 +17,7 @@ def r2(obs_data, model_data, dim=None):
         xarray.DataArray: The computed R^2 values. Returns NaN where the
         observation variance is zero.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     ssr = ((model_data - obs_data) ** 2).sum(dim=dim)
     sst = ((obs_data - obs_data.mean(dim=dim)) ** 2).sum(dim=dim)
     return xr.where(sst == 0, np.nan, 1 - ssr / sst)

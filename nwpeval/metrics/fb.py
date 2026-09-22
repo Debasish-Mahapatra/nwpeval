@@ -1,26 +1,25 @@
 """Frequency Bias (FB)."""
-import xarray as xr
-from ._base import confusion_matrix
+from ._base import contingency, ratio
 
 
 def fb(obs_data, model_data, threshold, dim=None):
     """
     Compute the Frequency Bias (FB) for a given threshold.
-    
+
+    FB = (TP + FP) / (TP + FN).
+
+    An event is ``value >= threshold``. Points missing (NaN) in either input
+    are excluded from the contingency table.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.
         threshold (float): The threshold value for binary classification.
         dim (str, list, or None): Dimension(s) to compute over.
-    
-    Returns:
-        xarray.DataArray: The computed FB values.
-    """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-    
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-    
-    denominator = tp + fn
-    return xr.where(denominator == 0, 0.0, (tp + fp) / denominator)
 
+    Returns:
+        xarray.DataArray: The computed FB values. NaN where no event
+        was observed.
+    """
+    tn, fp, fn, tp = contingency(obs_data, model_data, threshold, dim)
+    return ratio(tp + fp, tp + fn)

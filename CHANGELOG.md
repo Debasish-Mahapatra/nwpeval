@@ -1,8 +1,66 @@
 # Changelog
 
-## Version 1.6.2 (2026-05-05)
+## Version 1.6.2 (2026-05-05, updated 2026-09-22)
 
-### Bug fixes
+### Update 2026-09-22
+
+All formulas were already correct on complete data. This update fixes how
+the metrics handle missing data, undefined cases, large samples and grids.
+
+#### Bug fixes
+- Missing data (NaN) is now dropped from both inputs in every metric.
+  - Categorical scores (POD, FAR, CSI, FB, ETS/GSS, HSS, PSS/HKD, ORSS, SEDS,
+    EDS, SEDI, F1, MCC, BA, NPV, Jaccard, Gain, Lift) turned NaN into "no
+    event" before building the contingency table, so the confusion-matrix NaN
+    guard never ran. On the Finley table plus 1,050 missing observations,
+    FAR went 0.72 -> 0.81 and CSI 0.23 -> 0.16.
+  - BSS and RPSS counted missing observations as non-events.
+  - MBD, FV, SDR, VIF, GMB, ACC, AEV, cosine similarity, WMAE and all
+    distributional metrics reduced obs and model over different samples when
+    their NaN patterns differed (NRMSE, R2, EVS, NMSE, NAE, RMB, SMSE and QSS
+    when the model had gaps).
+- FSS treated missing points as dry and scored only points whose whole
+  window fitted inside the grid (none at all once the window was wider than
+  the domain, which returned NaN). Fractions are now taken over valid
+  neighbours only and every valid point is scored.
+- Undefined scores return NaN instead of 0: POD, FAR, CSI, FB, ETS, HSS,
+  MCC, BSS and RPSS. PSS returned -POFD when no event was observed; SEDS
+  returned 1 when there were no events at all. F1 is now 2TP/(2TP+FP+FN), which is 0 (not NaN) when
+  there are no hits but some false alarms or misses.
+- MCC overflowed int64 above about 400,000 points and returned NaN;
+  contingency counts are now floats.
+- SEDI, EDS and SEDS clipped probabilities to 1e-10, giving about -0.82
+  instead of the limit -1 when there are no hits. They now return the exact
+  limits, and NaN where the limit is path-dependent.
+- Wasserstein compared the raw arrays element-wise, so a model array with a
+  different dimension order gave a wrong distance.
+- ASS with a per-element reference error and `dim=None` returned an array
+  instead of a scalar.
+
+#### Behaviour changes
+- Inputs whose coordinates differ (even by floating-point noise) now raise a
+  `ValueError`. Previously xarray's inner join silently dropped the unmatched
+  points, or returned NaN when nothing matched.
+- TSE and the distributional metrics return NaN instead of 0 when there is
+  no valid point.
+
+#### Documentation and examples
+- New section on missing data, alignment and aggregation: pool
+  contingency counts with `dim` rather than averaging per-time scores.
+- The POD/FAR and diurnal-cycle examples now pool counts.
+- ACC docstring: without a climatology, the obs mean is used for both
+  anomalies, so a mean model bias lowers the score.
+
+#### Tests
+- `tests/test_metric_correctness.py`: every metric against an independent
+  numpy reference on clean data, obs gaps and model gaps; Finley published
+  values; undefined cases; MCC at 3 million points; misaligned coordinates for
+  every public metric; FSS against a loop-based brute force.
+- `tests/conftest.py` skips the two data-dependent scripts under `tests/`.
+
+### Release 2026-05-05
+
+#### Bug fixes
 - Mathematical / formula corrections
   - EDS: corrected sign error in numerator
   - SEDS: replaced non-canonical formula with `[log(p) + log(p_F)] / log(s) - 1`
@@ -24,21 +82,21 @@
 - Harmonic mean and geometric mean now handle zeros and negatives.
 - Fix dispatcher passing `dim` as `climatology` to `compute_acc`.
 
-### Refactor
+#### Refactor
 - Three pairs of duplicate metrics consolidated into aliases:
   GSS -> ETS, HKD -> PSS, Jaccard -> CSI.
 - All `NWP_Stats.compute_*` methods now delegate to the standalone metric
   functions, eliminating duplicated bugs in the legacy class.
 - Legacy `NWP_Stats.confusion_matrix` delegates to the canonical helper.
 
-### Data loading
+#### Data loading
 - `nwpeval.utils.load_data` now supports HDF5 files (`.h5`, `.hdf5`,
   `.hdf`) via the `h5netcdf` engine.
 - GRIB import check now correctly verifies `cfgrib` (the runtime engine)
   instead of the unused `pygrib`.
 - Both optional engines are imported lazily.
 
-### Packaging
+#### Packaging
 - `pygrib` removed from hard dependencies; `cfgrib` and `h5netcdf` moved
   to `extras_require` (`pip install nwpeval[grib]`, `[hdf5]`, `[all]`).
 - `requirements.txt` cleaned up: removed unused `scikit-learn` and

@@ -6,6 +6,7 @@
 3. [Quick Start](#quick-start)
 4. [New API (Recommended)](#new-api-recommended)
    - [Standalone Metric Functions](#standalone-metric-functions)
+   - [Missing Data, Alignment and Aggregation](#missing-data-alignment-and-aggregation)
    - [Available Metrics](#available-metrics)
 5. [Legacy API (Deprecated)](#legacy-api-deprecated)
    - [NWP_Stats Class](#nwp_stats-class)
@@ -119,6 +120,53 @@ from nwpeval import ass, rss, qss
 result = ass(obs_data, model_data, reference_error=ref_error)
 result = qss(obs_data, model_data, reference_forecast=climatology)
 ```
+
+---
+
+### Missing Data, Alignment and Aggregation
+
+All metrics follow the same rules.
+
+- **Coordinates must match.** `obs_data` and `model_data` (and any weights,
+  reference forecast or climatology) must have identical coordinates on their
+  shared dimensions. A mismatch, even floating-point noise such as `0.1` vs
+  `0.1000001`, raises a `ValueError` instead of silently shrinking the
+  sample. Put both on the same grid first (`model = model.interp_like(obs)`),
+  or keep only the common points with `obs, model = xr.align(obs, model, join='inner')`.
+- **NaN means missing.** A point that is NaN in either input is dropped from
+  both, so every statistic compares the same samples. For categorical scores a
+  missing point is excluded from the contingency table; it is never counted as
+  a correct "no event". To verify inside a footprint (e.g. radar coverage), set
+  both inputs to NaN outside it: `fss(obs.where(footprint), model.where(footprint), ...)`.
+- **Undefined scores are NaN.** POD with no observed event, FAR with no
+  forecast event, a skill score whose reference is perfect, and so on, return
+  NaN rather than 0.
+- **Pool, don't average.** Ratio scores (POD, FAR, CSI, ETS, HSS, FB, FSS,
+  BSS, ...) must be aggregated by pooling the counts, not by averaging scores
+  computed per time step. Pass every dimension you want to aggregate over in
+  `dim`, and for a diurnal cycle pool within each hour:
+
+```python
+import xarray as xr
+from nwpeval import pod
+
+pod_total = pod(obs, model, threshold=1.0)               # one score, all points
+pod_map = pod(obs, model, threshold=1.0, dim='time')     # counts pooled over time
+
+pairs = xr.Dataset({'obs': obs, 'model': model})
+pod_diurnal = pairs.groupby('time.hour').map(
+    lambda g: pod(g.obs, g.model, threshold=1.0)
+)
+```
+
+`pod(obs, model, 1.0, dim=['lat', 'lon']).mean('time')` is *not* the same
+thing: it weights an hour with one event like an hour with a thousand, and
+hours without events have no POD.
+
+**FSS** takes event fractions over the valid neighbours of each point, so
+points outside the domain or with missing data are unknown, not dry. Every
+valid point is scored at every neighbourhood size, and by default the sums run
+over all points and times (the aggregate FSS of Roberts and Lean, 2008).
 
 ---
 

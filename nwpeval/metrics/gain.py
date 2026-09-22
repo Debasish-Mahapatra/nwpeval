@@ -1,7 +1,5 @@
 """Gain metric (accuracy)."""
-import numpy as np
-import xarray as xr
-from ._base import confusion_matrix
+from ._base import contingency, ratio
 
 
 def gain(obs_data, model_data, threshold, dim=None):
@@ -10,6 +8,9 @@ def gain(obs_data, model_data, threshold, dim=None):
 
     Gain = (TP + TN) / N where N = TP + FP + FN + TN.
 
+    An event is ``value >= threshold``. Points missing (NaN) in either input
+    are excluded from the contingency table.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.
@@ -17,12 +18,8 @@ def gain(obs_data, model_data, threshold, dim=None):
         dim (str, list, or None): Dimension(s) to compute over.
 
     Returns:
-        xarray.DataArray: The computed Gain values.
+        xarray.DataArray: The computed Gain values. NaN where there
+        are no valid points.
     """
-    obs_binary = (obs_data >= threshold).astype(int)
-    model_binary = (model_data >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(obs_binary, model_binary, dim)
-
-    n = tp + fp + tn + fn
-    return xr.where(n == 0, np.nan, (tp + tn) / n)
+    tn, fp, fn, tp = contingency(obs_data, model_data, threshold, dim)
+    return ratio(tp + tn, tp + fp + fn + tn)

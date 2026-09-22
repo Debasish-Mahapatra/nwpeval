@@ -1,5 +1,6 @@
 """Mean Absolute Error (MAE)."""
 import numpy as np
+from ._base import paired
 
 
 def mae(obs_data, model_data, dim=None):
@@ -14,4 +15,5 @@ def mae(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed MAE values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     return np.abs(obs_data - model_data).mean(dim=dim)

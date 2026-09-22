@@ -1,6 +1,7 @@
 """Absolute Skill Score (ASS)."""
 import numpy as np
 import xarray as xr
+from ._base import paired, ratio
 
 
 def ass(obs_data, model_data, reference_error, dim=None):
@@ -23,11 +24,15 @@ def ass(obs_data, model_data, reference_error, dim=None):
     Returns:
         xarray.DataArray: The computed ASS values.
     """
+    obs_data, model_data, reference_error = paired(obs_data, model_data, reference_error)
     abs_error = np.abs(model_data - obs_data).mean(dim=dim)
 
-    if isinstance(reference_error, xr.DataArray) and reference_error.ndim > 0 and dim is not None:
-        ref = reference_error.mean(dim=dim) if any(d in reference_error.dims for d in ([dim] if isinstance(dim, str) else dim)) else reference_error
+    if isinstance(reference_error, xr.DataArray) and reference_error.ndim > 0:
+        dims = [dim] if isinstance(dim, str) else dim
+        reduce = [d for d in (reference_error.dims if dims is None else dims)
+                  if d in reference_error.dims]
+        ref = reference_error.mean(dim=reduce) if reduce else reference_error
     else:
-        ref = reference_error
+        ref = xr.DataArray(reference_error)
 
-    return xr.where(ref == 0, np.nan, 1 - abs_error / ref)
+    return 1 - ratio(abs_error, ref)

@@ -1,6 +1,7 @@
 """Relative Skill Score (RSS)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def rss(obs_data, model_data, reference_skill, dim=None):
@@ -21,6 +22,7 @@ def rss(obs_data, model_data, reference_skill, dim=None):
     Returns:
         xarray.DataArray: The computed RSS values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     obs_safe = xr.where(obs_data == 0, np.nan, obs_data)
     rel_err = (np.abs(model_data - obs_data) / np.abs(obs_safe)).mean(dim=dim)
     model_skill = 1 - rel_err

@@ -1,6 +1,7 @@
 """Geometric Mean (element-wise between obs and model)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def geometric_mean(obs_data, model_data, dim=None):
@@ -19,5 +20,6 @@ def geometric_mean(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: Element-wise geometric mean of obs and model.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     valid = (obs_data >= 0) & (model_data >= 0)
     return xr.where(valid, np.sqrt(obs_data * model_data), np.nan)

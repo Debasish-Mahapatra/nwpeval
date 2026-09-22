@@ -1,4 +1,5 @@
 """Mean Bias Deviation (MBD)."""
+from ._base import paired
 
 
 def mbd(obs_data, model_data, dim=None):
@@ -13,4 +14,5 @@ def mbd(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed MBD values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     return model_data.mean(dim=dim) - obs_data.mean(dim=dim)

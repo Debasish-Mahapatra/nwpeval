@@ -1,6 +1,7 @@
 """Symmetric Brier Score (SBS)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def sbs(obs_data, model_data, dim=None):
@@ -19,6 +20,7 @@ def sbs(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed SBS values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     p = xr.where((model_data >= 0) & (model_data <= 1), model_data, np.nan)
     o = xr.where((obs_data == 0) | (obs_data == 1), obs_data, np.nan)
     return 2 * ((p - o) ** 2).mean(dim=dim)

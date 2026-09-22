@@ -1,4 +1,5 @@
 """Lehmer Mean (element-wise between obs and model)."""
+from ._base import paired
 
 
 def lehmer_mean(obs_data, model_data, p, dim=None):
@@ -16,6 +17,7 @@ def lehmer_mean(obs_data, model_data, p, dim=None):
     Returns:
         xarray.DataArray: Element-wise Lehmer mean of obs and model.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     obs_pow = obs_data ** p
     model_pow = model_data ** p
     return (obs_pow + model_pow) / (obs_data ** (p - 1) + model_data ** (p - 1))

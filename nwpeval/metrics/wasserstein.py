@@ -1,6 +1,7 @@
 """Wasserstein Distance (W1)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def wasserstein(obs_data, model_data, dim=None):
@@ -11,6 +12,8 @@ def wasserstein(obs_data, model_data, dim=None):
     mean absolute difference of the order statistics:
         W1 = mean(|sort(obs) - sort(model)|).
 
+    Points missing (NaN) in either input are dropped from both samples.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.
@@ -20,16 +23,15 @@ def wasserstein(obs_data, model_data, dim=None):
     Returns:
         xarray.DataArray: The computed Wasserstein distance values.
     """
+    obs_data, model_data = paired(obs_data, model_data)
+    # Same layout for both, so the raw arrays below line up element by element.
+    model_data = model_data.transpose(*obs_data.dims)
+
     if dim is None:
-        obs_flat = np.asarray(obs_data.values).ravel()
-        model_flat = np.asarray(model_data.values).ravel()
-        if obs_flat.size != model_flat.size:
-            raise ValueError(
-                "wasserstein requires obs and model to have the same number of samples."
-            )
-        return xr.DataArray(
-            np.mean(np.abs(np.sort(obs_flat) - np.sort(model_flat)))
-        )
+        # Missing pairs are NaN in both; NaN sorts last, so they pair up and drop out.
+        diff = np.abs(np.sort(obs_data.values.ravel()) - np.sort(model_data.values.ravel()))
+        valid = np.isfinite(diff)
+        return xr.DataArray(diff[valid].mean() if valid.any() else np.nan)
 
     dims = [dim] if isinstance(dim, str) else list(dim)
 

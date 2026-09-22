@@ -1,6 +1,7 @@
 """Normalized Absolute Error (NAE)."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def nae(obs_data, model_data, dim=None):
@@ -18,6 +19,7 @@ def nae(obs_data, model_data, dim=None):
         xarray.DataArray: The computed NAE values. Returns NaN where the
         sum of |obs| is zero.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     abs_error = np.abs(model_data - obs_data).sum(dim=dim)
     abs_obs = np.abs(obs_data).sum(dim=dim)
     return xr.where(abs_obs == 0, np.nan, abs_error / abs_obs)

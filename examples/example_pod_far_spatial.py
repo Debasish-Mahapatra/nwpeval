@@ -1,7 +1,6 @@
 import xarray as xr
-import numpy as np
 import matplotlib.pyplot as plt
-from nwpeval import NWP_Stats
+from nwpeval import pod, far
 
 # File paths
 model_file = "/Users/dev/PROJECTS/nwp_metrics_package/examples/india_model_output_005deg_irregular_storm.nc"
@@ -15,51 +14,46 @@ obs_data = xr.open_dataset(obs_file)
 model_var = 'lightning_density'  # Replace with the actual variable name from the model file
 obs_var = 'lightning_density'  # Replace with the actual variable name from the observation file
 
-# Create an instance of NWPMetrics
-metrics = NWP_Stats(obs_data[obs_var], model_data[model_var])
+obs = obs_data[obs_var]
+model = model_data[model_var]
+threshold = 0.0005
 
-# Calculate POD and FAR spatially at every time step
-pod_values = metrics.compute_pod(threshold=0.0005, dim=None)
-far_values = metrics.compute_far(threshold=0.0005, dim=None)
+# POD and FAR are ratios of contingency-table counts. To aggregate them, pool
+# the counts with `dim` rather than averaging per-time-step scores: an average
+# weights a time step with one event the same as one with a thousand, and time
+# steps without events have no POD at all.
 
-# Compute the spatial average of POD and FAR at each time step
-#pod_spatial_avg = pod_values.mean(dim=['lat', 'lon'])
-#far_spatial_avg = far_values.mean(dim=['lat', 'lon'])
-
-pod_temporal_avg = pod_values.mean(dim='time')
-far_temporal_avg = far_values.mean(dim='time')
+# Maps: counts pooled over time at every grid point
+pod_map = pod(obs, model, threshold=threshold, dim='time')
+far_map = far(obs, model, threshold=threshold, dim='time')
 
 # Create spatial plots
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
-# Plot the temporally averaged POD values
-pod_temporal_avg.plot(ax=ax1)
-ax1.set_title('Temporally Averaged POD')
+pod_map.plot(ax=ax1)
+ax1.set_title('POD')
 ax1.set_xlabel('Longitude')
 ax1.set_ylabel('Latitude')
 
-# Plot the temporally averaged FAR values
-far_temporal_avg.plot(ax=ax2)
-ax2.set_title('Temporally Averaged FAR')
+far_map.plot(ax=ax2)
+ax2.set_title('FAR')
 ax2.set_xlabel('Longitude')
 ax2.set_ylabel('Latitude')
 
 plt.tight_layout()
 plt.savefig('spatial_plots.png')
 
-# Create a diurnal cycle plot
+# Diurnal cycle: for each hour of day, counts pooled over space and all days
+pairs = xr.Dataset({'obs': obs, 'model': model})
+pod_diurnal = pairs.groupby('time.hour').map(lambda g: pod(g.obs, g.model, threshold=threshold))
+far_diurnal = pairs.groupby('time.hour').map(lambda g: far(g.obs, g.model, threshold=threshold))
+
 fig, ax = plt.subplots(figsize=(8, 6))
-
-# Compute the spatial average of POD and FAR at each time step
-pod_spatial_avg = pod_values.mean(dim=['lon', 'lat'])
-far_spatial_avg = far_values.mean(dim=['lon', 'lat'])
-
-# Plot the time series of spatially averaged POD and FAR
-ax.plot(pod_spatial_avg.time, pod_spatial_avg, label='POD')
-ax.plot(far_spatial_avg.time, far_spatial_avg, label='FAR')
+ax.plot(pod_diurnal.hour, pod_diurnal, label='POD')
+ax.plot(far_diurnal.hour, far_diurnal, label='FAR')
 
 ax.set_title('Diurnal Cycle of POD and FAR')
-ax.set_xlabel('Time')
+ax.set_xlabel('Hour')
 ax.set_ylabel('Value')
 ax.legend()
 

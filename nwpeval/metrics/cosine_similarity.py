@@ -1,6 +1,7 @@
 """Cosine Similarity."""
 import numpy as np
 import xarray as xr
+from ._base import paired
 
 
 def cosine_similarity(obs_data, model_data, dim=None):
@@ -18,6 +19,7 @@ def cosine_similarity(obs_data, model_data, dim=None):
         xarray.DataArray: The computed Cosine Similarity values. Returns NaN
         where either norm is zero.
     """
+    obs_data, model_data = paired(obs_data, model_data)
     dot_product = (model_data * obs_data).sum(dim=dim)
     model_norm = np.sqrt((model_data ** 2).sum(dim=dim))
     obs_norm = np.sqrt((obs_data ** 2).sum(dim=dim))
