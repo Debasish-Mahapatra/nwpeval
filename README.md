@@ -85,6 +85,10 @@ fss_value = fss(
 )
 ```
 
+A full worked example (threshold x neighbourhood table, useful-skill level,
+percentile thresholds, diurnal cycle, heatmap) is in
+[examples/example_fss.py](examples/example_fss.py).
+
 #### Example: Distribution comparison metrics
 ```python
 from nwpeval import mkldiv, jsdiv, hellinger, wasserstein
