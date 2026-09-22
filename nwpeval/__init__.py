@@ -11,7 +11,7 @@ Legacy API (deprecated):
     stats.compute_rmse()
 """
 
-__version__ = "1.6.2"
+__version__ = "1.6.3"
 
 # Export all standalone metric functions (65 total)
 from .metrics import (

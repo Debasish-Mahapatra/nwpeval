@@ -1,5 +1,18 @@
 # Changelog
 
+## Version 1.6.3 (2026-09-22)
+
+### Bug fixes
+- MKLDIV returned 0 (perfect agreement) when the model field had no mass,
+  e.g. no rain anywhere in a time step. It now returns NaN, like the other
+  distribution metrics. Where the model misses observed mass it is still +inf.
+
+### Tests
+- `tests/test_metric_coverage.py`: every per-dimension result (`dim='time'`,
+  spatial, all) of every metric against numpy references, with gaps in obs,
+  model or both; parameter sweeps; the legacy `NWP_Stats.compute_metrics` for
+  all 65 names; an extra ensemble dimension; dask-backed inputs.
+
 ## Version 1.6.2 (2026-05-05, updated 2026-09-22)
 
 ### Update 2026-09-22

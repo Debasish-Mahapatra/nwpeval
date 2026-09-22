@@ -310,6 +310,21 @@ def test_distributional_matches_reference(name, case):
     assert_close(got, distributional_reference(name, o, m))
 
 
+@pytest.mark.parametrize("name", DISTRIBUTIONAL[:-1])
+@pytest.mark.parametrize("dry", ["obs", "model"])
+def test_distributional_undefined_when_one_field_has_no_mass(name, dry):
+    wet, zero = one_d([1.0, 2.0, 3.0]), one_d([0.0, 0.0, 0.0])
+    obs, model = (zero, wet) if dry == "obs" else (wet, zero)
+    f = getattr(nw, name)
+    got = f(obs, model, 0.3) if name in ("chernoff", "renyi", "tsallis") else f(obs, model)
+    assert np.isnan(float(got))
+
+
+def test_mkldiv_is_infinite_where_the_model_misses_observed_mass():
+    assert float(nw.mkldiv(one_d([1.0, 1.0]), one_d([1.0, 0.0]))) == np.inf
+    assert float(nw.mkldiv(one_d([1.0, 0.0]), one_d([1.0, 1.0]))) == pytest.approx(np.log(2))
+
+
 def test_wasserstein_with_dim_matches_reference_per_slice():
     o, m = case_inputs("obs missing")
     got = nw.wasserstein(da(o), da(m), dim=["y", "x"])

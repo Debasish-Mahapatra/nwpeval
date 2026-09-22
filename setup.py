@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='nwpeval',
-    version='1.6.2',
+    version='1.6.3',
     description='A package for computing metrics for NWP model evaluation',
     long_description=long_description,
     long_description_content_type="text/markdown",

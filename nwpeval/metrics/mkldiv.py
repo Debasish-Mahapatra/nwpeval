@@ -1,7 +1,7 @@
 """Mean Kullback-Leibler Divergence (MKLDIV)."""
 import numpy as np
 import xarray as xr
-from ._base import distributions
+from ._base import distributions, safe_log
 
 
 def mkldiv(obs_data, model_data, dim=None):
@@ -26,8 +26,8 @@ def mkldiv(obs_data, model_data, dim=None):
     """
     obs_prob, model_prob = distributions(obs_data, model_data, dim)
 
-    ratio = xr.where(model_prob == 0, np.inf, obs_prob / model_prob)
-    log_ratio = xr.where(obs_prob == 0, 0.0, np.log(xr.where(ratio > 0, ratio, 1.0)))
-    term = xr.where(obs_prob == 0, 0.0, obs_prob * log_ratio)
+    term = xr.where(obs_prob > 0, obs_prob * safe_log(obs_prob / model_prob.where(model_prob > 0)), 0.0)
     term = xr.where((obs_prob > 0) & (model_prob == 0), np.inf, term)
+    # Undefined (NaN) wherever either distribution is, e.g. a field with no rain at all
+    term = term.where(obs_prob.notnull() & model_prob.notnull())
     return term.sum(dim=dim, min_count=1)
