@@ -12,7 +12,6 @@ import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import pandas as pd
 
 from nwpeval import (
     # Continuous metrics
@@ -49,6 +48,27 @@ thresholds = [0.1, 1.0, 5.0]
 time_coord = obs.coords['time'].values if 'time' in obs.coords else np.arange(obs.shape[0])
 print(f"Time points: {len(time_coord)}")
 
+# The thick lines pool all points of consecutive blocks of time steps and score
+# them together. A rolling mean of per-step scores would weight a step with one
+# event like a step with a thousand, and a dry step has no POD or FSS at all.
+window = max(1, min(100, len(time_coord) // 10))
+
+
+def pooled_blocks(func, **kwargs):
+    """Score each block of `window` time steps over all its points.
+
+    Returns the time at the centre of each block and the scores. Pass the
+    reduction over 'step' and space in kwargs (dim=..., or reduction_dim= for FSS).
+    """
+    o = obs.coarsen(time=window, boundary='trim').construct(time=('block', 'step'))
+    m = model.coarsen(time=window, boundary='trim').construct(time=('block', 'step'))
+    n_blocks = o.sizes['block']
+    centre = time_coord[:n_blocks * window].reshape(n_blocks, window)[:, window // 2]
+    return centre, func(o, m, **kwargs).values
+
+
+pooled_label = f'pooled over {window} steps'
+
 # ============================================================
 # 1. CONTINUOUS METRICS TIME SERIES
 # ============================================================
@@ -56,27 +76,11 @@ print("\n" + "="*60)
 print("COMPUTING CONTINUOUS METRICS TIME SERIES")
 print("="*60)
 
+continuous_funcs = {'MAE': mae, 'RMSE': rmse, 'PCC': pcc, 'MBD': mbd, 'R2': r2}
 continuous_ts = {}
-
-# MAE
-print("  Computing MAE...")
-continuous_ts['MAE'] = mae(obs, model, dim=spatial_dims)
-
-# RMSE
-print("  Computing RMSE...")
-continuous_ts['RMSE'] = rmse(obs, model, dim=spatial_dims)
-
-# PCC
-print("  Computing PCC...")
-continuous_ts['PCC'] = pcc(obs, model, dim=spatial_dims)
-
-# MBD
-print("  Computing MBD (Bias)...")
-continuous_ts['MBD'] = mbd(obs, model, dim=spatial_dims)
-
-# R2
-print("  Computing R²...")
-continuous_ts['R2'] = r2(obs, model, dim=spatial_dims)
+for name, func in continuous_funcs.items():
+    print(f"  Computing {name}...")
+    continuous_ts[name] = func(obs, model, dim=spatial_dims)
 
 # Plot continuous metrics time series
 fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharex=True)
@@ -87,11 +91,9 @@ for i, (name, ts) in enumerate(continuous_ts.items()):
         break
     ax = axes[i]
     ax.plot(time_coord, ts.values, 'b-', linewidth=0.5, alpha=0.7)
-    # Add rolling mean
-    window = min(100, len(ts)//10)
     if window > 1:
-        rolling_mean = pd.Series(ts.values).rolling(window=window, center=True).mean()
-        ax.plot(time_coord, rolling_mean, 'r-', linewidth=2, label=f'{window}-point mean')
+        centre, pooled = pooled_blocks(continuous_funcs[name], dim=['step'] + spatial_dims)
+        ax.plot(centre, pooled, 'r-', linewidth=2, label=pooled_label)
     ax.set_ylabel(name, fontsize=12)
     ax.set_title(f'{name} Time Series', fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
@@ -146,11 +148,10 @@ for thresh in thresholds:
             continue
         ax = axes[i]
         ax.plot(time_coord, ts.values, 'b-', linewidth=0.5, alpha=0.7)
-        # Rolling mean
-        window = min(100, len(ts)//10)
         if window > 1:
-            rolling_mean = pd.Series(ts.values).rolling(window=window, center=True).mean()
-            ax.plot(time_coord, rolling_mean, 'r-', linewidth=2, label=f'{window}-point mean')
+            centre, pooled = pooled_blocks(categorical_funcs[name], threshold=thresh,
+                                           dim=['step'] + spatial_dims)
+            ax.plot(centre, pooled, 'r-', linewidth=2, label=pooled_label)
         ax.set_ylabel(name, fontsize=12)
         ax.set_title(f'{name}', fontsize=12, fontweight='bold')
         ax.grid(True, alpha=0.3)
@@ -187,13 +188,13 @@ for i, n_size in enumerate(neighborhood_sizes):
         
         ax = axes[i]
         ax.plot(time_coord, fss_ts.values, 'b-', linewidth=0.5, alpha=0.7)
-        
-        # Rolling mean
-        window = min(100, len(fss_ts)//10)
+
         if window > 1:
-            rolling_mean = pd.Series(fss_ts.values).rolling(window=window, center=True).mean()
-            ax.plot(time_coord, rolling_mean, 'r-', linewidth=2, label=f'{window}-point mean')
-        
+            centre, pooled = pooled_blocks(fss, threshold=thresh, neighborhood_size=n_size,
+                                           spatial_dims=['lat', 'lon'],
+                                           reduction_dim=['step', 'lat', 'lon'])
+            ax.plot(centre, pooled, 'r-', linewidth=2, label=pooled_label)
+
         ax.axhline(y=0.5, color='green', linestyle='--', linewidth=1, label='Skillful threshold')
         ax.set_ylabel(f'FSS (n={n_size})', fontsize=12)
         ax.set_title(f'Neighborhood = {n_size} grid points', fontsize=12, fontweight='bold')
@@ -228,18 +229,16 @@ colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
 for name, color in zip(skill_metrics, colors):
     print(f"  Computing {name}...")
     func = {'ETS': ets, 'HSS': hss, 'CSI': csi, 'POD': pod}[name]
-    ts = func(obs, model, threshold=thresh, dim=spatial_dims)
-    
-    # Plot rolling mean only for clarity
-    window = min(100, len(ts)//10)
+
+    # Plot the pooled blocks only for clarity
     if window > 1:
-        rolling_mean = pd.Series(ts.values).rolling(window=window, center=True).mean()
-        ax.plot(time_coord, rolling_mean, '-', linewidth=2, color=color, label=name)
+        centre, pooled = pooled_blocks(func, threshold=thresh, dim=['step'] + spatial_dims)
+        ax.plot(centre, pooled, '-', linewidth=2, color=color, label=name)
 
 ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
 ax.set_xlabel('Time', fontsize=12)
 ax.set_ylabel('Skill Score', fontsize=12)
-ax.set_title(f'Skill Scores Time Series (Threshold={thresh}, Rolling Mean)', fontsize=14, fontweight='bold')
+ax.set_title(f'Skill Scores Time Series (Threshold={thresh}, {pooled_label})', fontsize=14, fontweight='bold')
 ax.set_ylim(-0.1, 1.1)
 ax.legend(loc='upper right')
 ax.grid(True, alpha=0.3)
@@ -260,29 +259,29 @@ fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
 # MAE and RMSE
 ax = axes[0]
 print("  Plotting MAE and RMSE...")
-window = min(100, len(continuous_ts['MAE'])//10)
+reduce_blocks = ['step'] + spatial_dims
 
-mae_rolling = pd.Series(continuous_ts['MAE'].values).rolling(window=window, center=True).mean()
-rmse_rolling = pd.Series(continuous_ts['RMSE'].values).rolling(window=window, center=True).mean()
+centre, mae_pooled = pooled_blocks(mae, dim=reduce_blocks)
+_, rmse_pooled = pooled_blocks(rmse, dim=reduce_blocks)
 
-ax.plot(time_coord, mae_rolling, 'b-', linewidth=2, label='MAE')
-ax.plot(time_coord, rmse_rolling, 'r-', linewidth=2, label='RMSE')
+ax.plot(centre, mae_pooled, 'b-', linewidth=2, label='MAE')
+ax.plot(centre, rmse_pooled, 'r-', linewidth=2, label='RMSE')
 ax.set_ylabel('Error (mm/h)', fontsize=12)
-ax.set_title('Error Metrics Time Series', fontsize=12, fontweight='bold')
+ax.set_title(f'Error Metrics Time Series ({pooled_label})', fontsize=12, fontweight='bold')
 ax.legend(loc='upper right')
 ax.grid(True, alpha=0.3)
 
 # Bias (MBD)
 ax = axes[1]
 print("  Plotting Bias...")
-mbd_rolling = pd.Series(continuous_ts['MBD'].values).rolling(window=window, center=True).mean()
-ax.plot(time_coord, mbd_rolling, 'g-', linewidth=2, label='Mean Bias')
+_, mbd_pooled = pooled_blocks(mbd, dim=reduce_blocks)
+ax.plot(centre, mbd_pooled, 'g-', linewidth=2, label='Mean Bias')
 ax.axhline(y=0, color='black', linestyle='--', linewidth=1)
-ax.fill_between(time_coord, mbd_rolling, 0, alpha=0.3, 
-                color='green' if np.nanmean(mbd_rolling) >= 0 else 'red')
+ax.fill_between(centre, mbd_pooled, 0, alpha=0.3,
+                color='green' if np.nanmean(mbd_pooled) >= 0 else 'red')
 ax.set_ylabel('Bias (mm/h)', fontsize=12)
 ax.set_xlabel('Time', fontsize=12)
-ax.set_title('Mean Bias Time Series', fontsize=12, fontweight='bold')
+ax.set_title(f'Mean Bias Time Series ({pooled_label})', fontsize=12, fontweight='bold')
 ax.legend(loc='upper right')
 ax.grid(True, alpha=0.3)
 
@@ -300,33 +299,24 @@ print("COMPUTING DIURNAL CYCLE")
 print("="*60)
 
 try:
-    # Try to extract hour from time coordinate
-    time_pd = pd.to_datetime(time_coord)
-    hours = time_pd.hour
-    
-    # Group metrics by hour
+    # For each hour of day, pool all points of all days at that hour and score
+    # them together (averaging per-step scores is not the same thing).
+    # xr.align with join='exact' raises if the grids differ: building the
+    # Dataset directly would pad a mismatch with NaN instead.
+    obs_a, model_a = xr.align(obs, model, join='exact')
+    by_hour = xr.Dataset({'obs': obs_a, 'model': model_a}).groupby('time.hour')
+
+    print("  Computing MAE, POD and CSI for each hour...")
     metrics_by_hour = {
-        'MAE': [],
-        'POD': [],
-        'CSI': [],
+        'MAE': by_hour.map(lambda g: mae(g.obs, g.model)),
+        'POD': by_hour.map(lambda g: pod(g.obs, g.model, threshold=1.0)),
+        'CSI': by_hour.map(lambda g: csi(g.obs, g.model, threshold=1.0)),
     }
-    
-    # Compute POD and CSI time series
-    print("  Computing POD time series...")
-    pod_ts = pod(obs, model, threshold=1.0, dim=spatial_dims)
-    print("  Computing CSI time series...")
-    csi_ts = csi(obs, model, threshold=1.0, dim=spatial_dims)
-    
-    for hour in range(24):
-        mask = hours == hour
-        metrics_by_hour['MAE'].append(np.nanmean(continuous_ts['MAE'].values[mask]))
-        metrics_by_hour['POD'].append(np.nanmean(pod_ts.values[mask]))
-        metrics_by_hour['CSI'].append(np.nanmean(csi_ts.values[mask]))
-    
+
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
-    
+
     for ax, (name, values) in zip(axes, metrics_by_hour.items()):
-        ax.bar(range(24), values, color='steelblue', edgecolor='black')
+        ax.bar(values['hour'], values, color='steelblue', edgecolor='black')
         ax.set_xlabel('Hour (UTC)', fontsize=12)
         ax.set_ylabel(name, fontsize=12)
         ax.set_title(f'{name} Diurnal Cycle', fontsize=12, fontweight='bold')

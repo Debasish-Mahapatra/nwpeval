@@ -140,6 +140,30 @@ def sample_size(data, dim=None):
     return data.notnull().sum(dim=dim)
 
 
+def constant(data, dim=None):
+    """
+    True where ``data`` has fewer than two different valid values along ``dim``.
+
+    Checked on the values, not on a computed variance: rounding makes the
+    variance of constant data a tiny positive number (0.1, 0.1, 0.1 gives
+    1.9e-34), and a score divided by it would blow up instead of being NaN.
+    """
+    return ~(data.max(dim=dim) > data.min(dim=dim))
+
+
+def alpha_sum(p, q, alpha, dim=None):
+    """
+    ``sum(p**alpha * q**(1 - alpha))`` over ``dim`` for ``alpha >= 0``.
+
+    Each bin takes its exact limit: a bin with p == 0 adds 0, and a bin
+    with p > 0 and q == 0 adds 0 for alpha < 1 and +inf for alpha > 1.
+    NaN where P or Q is undefined.
+    """
+    term = xr.where(p > 0, p ** alpha * q.where(q > 0) ** (1 - alpha), 0.0)
+    term = xr.where((p > 0) & (q == 0), np.inf if alpha > 1 else 0.0, term)
+    return term.where(p.notnull() & q.notnull()).sum(dim=dim, min_count=1)
+
+
 def safe_log(x):
     """Natural log that returns NaN (without warnings) outside (0, inf)."""
     return np.log(x.where(x > 0))

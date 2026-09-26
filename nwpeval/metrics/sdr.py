@@ -1,7 +1,7 @@
 """Standard Deviation Ratio (SDR)."""
 import numpy as np
 import xarray as xr
-from ._base import paired
+from ._base import constant, paired
 
 
 def sdr(obs_data, model_data, dim=None):
@@ -22,4 +22,4 @@ def sdr(obs_data, model_data, dim=None):
     obs_data, model_data = paired(obs_data, model_data)
     obs_std = obs_data.std(dim=dim)
     model_std = model_data.std(dim=dim)
-    return xr.where(obs_std == 0, np.nan, model_std / obs_std)
+    return xr.where(constant(obs_data, dim), np.nan, model_std / obs_std)

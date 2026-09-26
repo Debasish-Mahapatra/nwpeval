@@ -8,6 +8,8 @@
    - [Standalone Metric Functions](#standalone-metric-functions)
    - [Missing Data, Alignment and Aggregation](#missing-data-alignment-and-aggregation)
    - [Available Metrics](#available-metrics)
+   - [Two Kinds of Distributional Metrics](#two-kinds-of-distributional-metrics)
+   - [Notes on Names](#notes-on-names)
 5. [Legacy API (Deprecated)](#legacy-api-deprecated)
    - [NWP_Stats Class](#nwp_stats-class)
 6. [Examples](#examples)
@@ -20,7 +22,7 @@
 
 ## Introduction
 
-NWPeval is a Python package designed for evaluating Numerical Weather Prediction (NWP) models. It provides **65 evaluation metrics** to assess model performance against observed data.
+NWPeval is a Python package designed for evaluating Numerical Weather Prediction (NWP) models. It provides **65 metric functions** (62 different scores, since GSS, HKD and Jaccard are other names for ETS, PSS and CSI) to assess model performance against observed data.
 
 The package integrates seamlessly with `xarray` for efficient multi-dimensional data handling.
 
@@ -31,6 +33,8 @@ The package integrates seamlessly with `xarray` for efficient multi-dimensional 
 ```shell
 pip install nwpeval
 ```
+
+The examples also need matplotlib and scipy: `pip install "nwpeval[examples]"`.
 
 ---
 
@@ -97,6 +101,12 @@ result = fss(
 )
 ```
 
+If `spatial_dims` is left out, FSS uses the first pair it finds among lat/lon,
+latitude/longitude, y/x, rlat/rlon and south_north/west_east. Data with at most
+two dimensions uses all of them. Anything else raises a `ValueError` instead of
+guessing, since a wrong guess (for example smoothing over time) gives a wrong
+score with no warning.
+
 #### Metrics with Additional Parameters
 
 ```python
@@ -139,12 +149,15 @@ All metrics follow the same rules.
   a correct "no event". To verify inside a footprint (e.g. radar coverage), set
   both inputs to NaN outside it: `fss(obs.where(footprint), model.where(footprint), ...)`.
 - **Undefined scores are NaN.** POD with no observed event, FAR with no
-  forecast event, a skill score whose reference is perfect, and so on, return
-  NaN rather than 0.
+  forecast event, a skill score whose reference is perfect, R², EVS or PCC
+  when the observations never change, and so on, return NaN rather than 0.
+  Constant observations are found from the values themselves, so a constant
+  such as 0.1 (whose computed variance is a tiny rounding error, not 0) is
+  caught too.
 - **Pool, don't average.** Ratio scores (POD, FAR, CSI, ETS, HSS, FB, FSS,
   BSS, ...) must be aggregated by pooling the counts, not by averaging scores
   computed per time step. Pass every dimension you want to aggregate over in
-  `dim`, and for a diurnal cycle pool within each hour:
+  `dim` (`reduction_dim` for FSS), and for a diurnal cycle pool within each hour:
 
 ```python
 import xarray as xr
@@ -153,6 +166,9 @@ from nwpeval import pod
 pod_total = pod(obs, model, threshold=1.0)               # one score, all points
 pod_map = pod(obs, model, threshold=1.0, dim='time')     # counts pooled over time
 
+# join='exact' raises if the grids differ. xr.Dataset({...}) on its own
+# would pad a mismatch with NaN and hide it.
+obs, model = xr.align(obs, model, join='exact')
 pairs = xr.Dataset({'obs': obs, 'model': model})
 pod_diurnal = pairs.groupby('time.hour').map(
     lambda g: pod(g.obs, g.model, threshold=1.0)
@@ -199,7 +215,6 @@ over all points and times (the aggregate FSS of Roberts and Lean, 2008).
 | | `lmbe` | Logarithmic Mean Bias Error |
 | | `smse` | Scaled Mean Squared Error |
 | | `gmb` | Geometric Mean Bias |
-| | `sbs` | Symmetric Brier Score |
 | | `aev` | Adjusted Explained Variance |
 | | `cosine_similarity` | Cosine Similarity |
 | **Spatial** | `fss` | Fractions Skill Score |
@@ -223,8 +238,9 @@ over all points and times (the aggregate FSS of Roberts and Lean, 2008).
 | | `jaccard` | Jaccard Similarity Coefficient |
 | | `gain` | Gain |
 | | `lift` | Lift |
-| **Probabilistic** | `bss` | Brier Skill Score |
-| | `rpss` | Ranked Probability Skill Score |
+| **Probabilistic** | `bss` | Brier Skill Score (`model_data` is a probability from 0 to 1) |
+| | `sbs` | Symmetric Brier Score (0/1 obs, `model_data` is a probability from 0 to 1) |
+| | `rpss` | Ranked Probability Skill Score, simplified: the model is turned into yes/no |
 | **Distributional** | `mkldiv` | Mean Kullback-Leibler Divergence |
 | | `jsdiv` | Jensen-Shannon Divergence |
 | | `hellinger` | Hellinger Distance |
@@ -239,6 +255,47 @@ over all points and times (the aggregate FSS of Roberts and Lean, 2008).
 | **Mean** | `harmonic_mean` | Element-wise Harmonic Mean |
 | | `geometric_mean` | Element-wise Geometric Mean |
 | | `lehmer_mean` | Lehmer Mean |
+
+---
+
+### Two Kinds of Distributional Metrics
+
+The distributional metrics answer two different questions.
+
+- **`wasserstein`** compares the spread of values, like two histograms. Where
+  the values are does not matter.
+- **The other ten** (`mkldiv`, `jsdiv`, `hellinger`, `tv`, `chisquare`,
+  `intersection`, `bhattacharyya`, `chernoff`, `renyi`, `tsallis`) compare
+  where the mass is. Each field is scaled to sum to 1 over `dim`, and the two
+  are compared point by point.
+
+So the same storm moved to another place scores 0 (perfect) on `wasserstein`
+but 1 (worst) on `hellinger`. To compare value distributions with the other
+ten, pass histograms (counts per bin) instead of the fields.
+
+For the ten: where the model has no mass at a point where obs has some,
+`mkldiv` and `chisquare` are +inf, and so are `renyi` and `tsallis` for
+alpha > 1. Where the two fields share no mass at all, `renyi`, `chernoff` and
+`bhattacharyya` are +inf too. A field with no mass at all (e.g. no rain
+anywhere) gives NaN.
+
+---
+
+### Notes on Names
+
+Some names in nwpeval are used differently elsewhere. The functions compute
+exactly what their docstrings say; these notes are to avoid confusion.
+
+| Function | In nwpeval | Elsewhere |
+|----------|------------|-----------|
+| `gss`, `hkd`, `jaccard` | Other names for `ets`, `pss` and `csi` | |
+| `vif` | var(model) / var(obs) - 1 | In regression, the VIF of a predictor is 1 / (1 - R²), with R² from fitting it on the other predictors |
+| `fv`, `sdr` | var(model) / var(obs) and std(model) / std(obs) | `fv`, `vif` (= `fv` - 1) and `sdr` (= sqrt(`fv`)) carry the same information |
+| `gain` | Fraction correct (accuracy), (TP + TN) / N | |
+| `nmse` | MSE / mean(obs)² | Air-quality studies (Chang and Hanna, 2004) often use MSE / (mean(obs) x mean(model)) |
+| `gmb` | geometric mean of model / geometric mean of obs, so above 1 means the model is too high | The MG of Chang and Hanna (2004) is obs over model, i.e. 1 / `gmb` |
+| `rpss` | Brier-type skill score of a yes/no forecast (2 categories) | Usually scores multi-category probability forecasts |
+| `sbs` | 2 x Brier score (the original two-category form) | |
 
 ---
 
@@ -339,6 +396,9 @@ pcc_ts = pcc(obs, model, dim=['lat', 'lon'])
 ```
 
 ### Example 5: Distribution Comparison
+
+`wasserstein` compares the spread of values; `jsdiv` and `hellinger` compare
+where the mass is (see [Two Kinds of Distributional Metrics](#two-kinds-of-distributional-metrics)).
 
 ```python
 from nwpeval import jsdiv, hellinger, wasserstein

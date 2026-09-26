@@ -1,5 +1,5 @@
 """Anomaly Correlation Coefficient (ACC)."""
-from ._base import check_aligned, paired, ratio
+from ._base import check_aligned, constant, paired, ratio
 
 
 def acc(obs_data, model_data, climatology=None, dim=None):
@@ -30,7 +30,9 @@ def acc(obs_data, model_data, climatology=None, dim=None):
     """
     obs_data, model_data = paired(obs_data, model_data)
     if climatology is None:
-        climatology = obs_data.mean(dim=dim)
+        # Where obs never change, ACC is undefined: mask the mean so the
+        # result is NaN instead of a score of rounding noise
+        climatology = obs_data.mean(dim=dim).where(~constant(obs_data, dim))
     else:
         check_aligned(obs_data, climatology)
 

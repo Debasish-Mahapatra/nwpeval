@@ -65,7 +65,6 @@ continuous_metrics = {
     'LMBE': lambda: lmbe(obs, model, dim=dims),
     'SMSE': lambda: smse(obs, model, dim=dims),
     'GMB': lambda: gmb(obs, model, dim=dims),
-    'SBS': lambda: sbs(obs, model, dim=dims),
     'AEV': lambda: aev(obs, model, dim=dims),
     'Cosine Similarity': lambda: cosine_similarity(obs, model, dim=dims),
 }
@@ -127,8 +126,15 @@ print("\n" + "="*60)
 print(f"PROBABILISTIC METRICS (threshold={threshold})")
 print("="*60)
 
+# BSS and SBS score a forecast probability (0 to 1), not rain in mm/h. This run
+# is deterministic, so its probability of rain >= threshold is 1 where the model
+# has it and 0 elsewhere (BSS then equals RPSS). SBS also needs obs as 0/1 events.
+obs_event = (obs >= threshold).where(obs.notnull())
+model_prob = (model >= threshold).where(model.notnull())
+
 probabilistic_metrics = {
-    'BSS': lambda: bss(obs, model, threshold=threshold, dim=dims),
+    'BSS': lambda: bss(obs, model_prob, threshold=threshold, dim=dims),
+    'SBS': lambda: sbs(obs_event, model_prob, dim=dims),
     'RPSS': lambda: rpss(obs, model, threshold=threshold, dim=dims),
 }
 

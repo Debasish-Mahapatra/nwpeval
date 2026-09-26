@@ -443,6 +443,11 @@ def test_legacy_dispatcher_covers_65_names():
     assert len(LEGACY_KEYS) == 65
 
 
+def test_legacy_name_list_matches_the_dispatcher():
+    from nwpeval.nwpeval import METRIC_NAMES
+    assert sorted(METRIC_NAMES) == sorted(LEGACY_KEYS + ["HKD"])
+
+
 @pytest.mark.parametrize("dim", [None, "time"])
 @pytest.mark.parametrize("key", LEGACY_KEYS)
 def test_legacy_compute_metrics_matches_functions(key, dim):

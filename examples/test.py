@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nwpeval as nw
 
-# Load observation and model data
-obs_data = xr.open_dataset("india_obs_output_1km_realistic_storm.nc")
-model_data = xr.open_dataset("india_model_output_1km_realistic_storm.nc")
+# Load observation and model data (run lightning_data_nc_gen.py first to create them)
+obs_data = xr.open_dataset("india_obs_output_005deg_irregular_storm.nc")
+model_data = xr.open_dataset("india_model_output_005deg_irregular_storm.nc")
 
 # Extract lightning density variables
 obs_lightning = obs_data["lightning_density"] 
@@ -30,6 +30,9 @@ for metric, threshold in thresholds.items():
 # contingency-table counts, so pool the counts over space and all days at each
 # hour rather than averaging per-time-step scores.
 metric_functions = {'SEDS': nw.seds, 'SEDI': nw.sedi, 'RPSS': nw.rpss}
+# xr.align with join='exact' raises if the grids differ; building the Dataset
+# directly would silently pad a mismatch with NaN.
+obs_lightning, model_lightning = xr.align(obs_lightning, model_lightning, join="exact")
 pairs = xr.Dataset({"obs": obs_lightning, "model": model_lightning})
 metrics_diurnal = {}
 for metric, threshold in thresholds.items():

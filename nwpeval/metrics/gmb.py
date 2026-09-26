@@ -10,6 +10,9 @@ def gmb(obs_data, model_data, dim=None):
     GMB = exp(mean(log(model))) / exp(mean(log(obs)))
         = geometric_mean(model) / geometric_mean(obs).
 
+    GMB > 1 means the model is too high. The MG of Chang and Hanna (2004)
+    is the other way round (obs over model), i.e. 1 / GMB.
+
     Inputs must be strictly positive. A pair where either value is
     non-positive (or missing) is dropped from both means.
 

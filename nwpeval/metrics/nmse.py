@@ -10,6 +10,9 @@ def nmse(obs_data, model_data, dim=None):
 
     NMSE = MSE / (mean(obs))^2.
 
+    Air-quality studies (Chang and Hanna, 2004) often define NMSE as
+    MSE / (mean(obs) * mean(model)) instead.
+
     Args:
         obs_data (xarray.DataArray): The observed data.
         model_data (xarray.DataArray): The modeled data.

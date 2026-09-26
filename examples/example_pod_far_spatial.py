@@ -2,9 +2,9 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from nwpeval import pod, far
 
-# File paths
-model_file = "/Users/dev/PROJECTS/nwp_metrics_package/examples/india_model_output_005deg_irregular_storm.nc"
-obs_file = "/Users/dev/PROJECTS/nwp_metrics_package/examples/india_obs_output_005deg_irregular_storm.nc"
+# File paths: run lightning_data_nc_gen.py first to create these files
+model_file = "india_model_output_005deg_irregular_storm.nc"
+obs_file = "india_obs_output_005deg_irregular_storm.nc"
 
 # Read the model and observation data from NetCDF files
 model_data = xr.open_dataset(model_file)
@@ -43,7 +43,10 @@ ax2.set_ylabel('Latitude')
 plt.tight_layout()
 plt.savefig('spatial_plots.png')
 
-# Diurnal cycle: for each hour of day, counts pooled over space and all days
+# Diurnal cycle: for each hour of day, counts pooled over space and all days.
+# xr.align with join='exact' raises if the grids differ; building the Dataset
+# directly would silently pad a mismatch with NaN.
+obs, model = xr.align(obs, model, join='exact')
 pairs = xr.Dataset({'obs': obs, 'model': model})
 pod_diurnal = pairs.groupby('time.hour').map(lambda g: pod(g.obs, g.model, threshold=threshold))
 far_diurnal = pairs.groupby('time.hour').map(lambda g: far(g.obs, g.model, threshold=threshold))

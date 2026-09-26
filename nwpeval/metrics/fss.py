@@ -1,6 +1,16 @@
 """Fractions Skill Score (FSS)."""
 from ._base import binarize, paired, ratio
 
+# Pairs of names taken as the horizontal dimensions when spatial_dims is None,
+# in order of preference.
+SPATIAL_NAMES = [
+    ("lat", "lon"),
+    ("latitude", "longitude"),
+    ("y", "x"),
+    ("rlat", "rlon"),
+    ("south_north", "west_east"),
+]
+
 
 def _box_sum(data, dims, size):
     """Sum over a centred ``size``-wide box, truncated at the domain edge.
@@ -38,8 +48,12 @@ def fss(obs_data, model_data, threshold, neighborhood_size, spatial_dims=None, r
         threshold (float): The threshold value for binary classification.
         neighborhood_size (int): The width of the neighbourhood window, in
             grid points (odd values give a window centred on the point).
-        spatial_dims (str, list, or None): The spatial dimension(s) for rolling window.
-                                           If None, auto-detects ['lat', 'lon'] or ['x', 'y'].
+        spatial_dims (str, list, or None): The spatial dimension(s) for the
+            neighbourhood window. If None, the first pair found among
+            lat/lon, latitude/longitude, y/x, rlat/rlon and
+            south_north/west_east is used, and data with at most two
+            dimensions uses all of them. Otherwise a ValueError is raised:
+            pass the names, e.g. ``spatial_dims=['lat', 'lon']``.
         reduction_dim (str, list, or None): The dimension(s) along which to reduce.
 
     Returns:
@@ -52,16 +66,17 @@ def fss(obs_data, model_data, threshold, neighborhood_size, spatial_dims=None, r
     if size < 1:
         raise ValueError(f"neighborhood_size must be a positive integer, got {neighborhood_size}")
 
-    # Determine spatial dimensions for rolling
+    # Determine spatial dimensions for rolling. Never guess from the order of
+    # the dimensions: with (latitude, longitude, time) that would smooth in time.
     if spatial_dims is None:
         dims = list(obs_data.dims)
-        if 'lat' in dims and 'lon' in dims:
-            spatial_dims = ['lat', 'lon']
-        elif 'x' in dims and 'y' in dims:
-            spatial_dims = ['x', 'y']
-        elif len(dims) >= 2:
-            spatial_dims = dims[-2:]
-        else:
+        spatial_dims = next((list(pair) for pair in SPATIAL_NAMES if set(pair) <= set(dims)), None)
+        if spatial_dims is None:
+            if len(dims) > 2:
+                raise ValueError(
+                    f"Cannot tell which of the dimensions {dims} are spatial. "
+                    "Pass them with spatial_dims, e.g. spatial_dims=['lat', 'lon']."
+                )
             spatial_dims = dims
 
     if isinstance(spatial_dims, str):

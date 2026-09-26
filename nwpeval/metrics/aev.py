@@ -1,5 +1,5 @@
 """Adjusted Explained Variance (AEV)."""
-from ._base import paired, ratio, sample_size
+from ._base import constant, paired, ratio, sample_size
 
 
 def aev(obs_data, model_data, dim=None, n_predictors=1):
@@ -20,7 +20,8 @@ def aev(obs_data, model_data, dim=None, n_predictors=1):
         xarray.DataArray: The computed AEV values.
     """
     obs_data, model_data = paired(obs_data, model_data)
-    evs = 1 - ratio((obs_data - model_data).var(dim=dim), obs_data.var(dim=dim))
+    obs_var = obs_data.var(dim=dim).where(~constant(obs_data, dim))
+    evs = 1 - ratio((obs_data - model_data).var(dim=dim), obs_var)
 
     n = sample_size(obs_data, dim=dim)
     denom = n - n_predictors - 1

@@ -10,7 +10,7 @@ lat = np.arange(lat_start, lat_end + 0.05, 0.05)
 lon = np.arange(lon_start, lon_end + 0.05, 0.05)
 
 # Time array for one day at hourly intervals
-time = pd.date_range("2023-01-01", periods=24, freq='H')
+time = pd.date_range("2023-01-01", periods=24, freq='h')
 
 # Initialize empty data arrays
 model_data = np.zeros((len(time), len(lat), len(lon)))
@@ -20,7 +20,7 @@ obs_data = np.zeros((len(time), len(lat), len(lon)))
 storm_center = [len(lat) // 2, len(lon) // 2] # Central India
 
 # Define movement per hour for the storm (in grid indices)
-storm_movement = [1, 2] # Move south-east
+storm_movement = [1, 2] # Move north-east (lat and lon both increase)
 
 # Generate lightning density data
 for t in range(len(time)):

@@ -4,10 +4,11 @@ NWPeval is a Python package designed to facilitate the evaluation and analysis o
 
 ## Features
 
-- **65 evaluation metrics** including:
+- **65 metric functions** (62 different scores: GSS, HKD and Jaccard are other
+  names for ETS, PSS and CSI) including:
   - Continuous: MAE, RMSE, R², NRMSE, PCC, and more
   - Categorical: POD, FAR, CSI, ETS, HSS, and more
-  - Probabilistic: BSS, RPSS
+  - Probabilistic: BSS, SBS, and a simplified yes/no RPSS
   - Distributional: KL Divergence, Hellinger, Wasserstein, and more
   
 - Flexible computation along specified dimensions
@@ -20,6 +21,8 @@ NWPeval is a Python package designed to facilitate the evaluation and analysis o
 ```shell
 pip install nwpeval
 ```
+
+The examples also need matplotlib and scipy: `pip install "nwpeval[examples]"`.
 
 ## Usage
 
@@ -85,11 +88,14 @@ fss_value = fss(
 )
 ```
 
+If `spatial_dims` is left out, FSS looks for lat/lon, latitude/longitude, y/x,
+rlat/rlon or south_north/west_east, and raises an error rather than guess.
+
 A full worked example (threshold x neighbourhood table, useful-skill level,
 percentile thresholds, diurnal cycle, heatmap) is in
-[examples/example_fss.py](examples/example_fss.py).
+[examples/example_fss.py](https://github.com/Debasish-Mahapatra/nwpeval/blob/main/examples/example_fss.py).
 
-![FSS by rain threshold and neighbourhood width, from examples/example_fss.py](examples/fss_heatmap.png)
+![FSS by rain threshold and neighbourhood width, from examples/example_fss.py](https://raw.githubusercontent.com/Debasish-Mahapatra/nwpeval/main/examples/fss_heatmap.png)
 
 #### Example: Distribution comparison metrics
 ```python
@@ -100,6 +106,19 @@ js = jsdiv(obs_data, model_data)
 hell = hellinger(obs_data, model_data)
 wass = wasserstein(obs_data, model_data)
 ```
+
+These answer two different questions:
+
+- `wasserstein` compares the spread of values, like two histograms. Where the
+  values are does not matter.
+- The other ten (`mkldiv`, `jsdiv`, `hellinger`, `tv`, `chisquare`,
+  `intersection`, `bhattacharyya`, `chernoff`, `renyi`, `tsallis`) compare
+  where the mass is. Each field is scaled to sum to 1 over `dim` and compared
+  point by point.
+
+So the same storm moved to another place scores 0 (perfect) on `wasserstein`
+but 1 (worst) on `hellinger`. To compare value distributions with the other
+ten, pass histograms (counts per bin) instead of the fields.
 
 #### Example: Metrics with parameters
 ```python
@@ -174,10 +193,11 @@ results = nwp_stats.compute_metrics(metrics, dim=dimensions)
   `ValueError` rather than silently dropping points.
 - NaN is missing in every metric: a point missing in either input is dropped
   from both, and never counted as a correct "no event".
-- A score that is undefined (e.g. POD with no observed event) is NaN, not 0.
+- A score that is undefined (e.g. POD with no observed event, or R² when the
+  observations never change) is NaN, not 0.
 - Aggregate ratio scores (POD, FAR, CSI, ETS, FSS, ...) by pooling counts with
-  `dim`, not by averaging per-time-step scores. See the
-  [documentation](docs/NWPeval_Documentation.md#missing-data-alignment-and-aggregation).
+  `dim` (`reduction_dim` for FSS), not by averaging per-time-step scores. See the
+  [documentation](https://github.com/Debasish-Mahapatra/nwpeval/blob/main/docs/NWPeval_Documentation.md#missing-data-alignment-and-aggregation).
 
 ---
 
@@ -185,12 +205,18 @@ results = nwp_stats.compute_metrics(metrics, dim=dimensions)
 
 | Category | Metrics |
 |----------|---------|
-| **Continuous** | MAE, RMSE, ACC, R², NRMSE, PCC, MBD, TSE, EVS, NMSE, FV, SDR, VIF, MAD, IQR, NAE, RMB, MAPE, WMAE, ASS, RSS, QSS, LMBE, SMSE, GMB, SBS, AEV, Cosine Similarity |
+| **Continuous** | MAE, RMSE, ACC, R², NRMSE, PCC, MBD, TSE, EVS, NMSE, FV, SDR, VIF, MAD, IQR, NAE, RMB, MAPE, WMAE, ASS, RSS, QSS, LMBE, SMSE, GMB, AEV, Cosine Similarity |
 | **Categorical** | ETS, POD, FAR, CSI, HSS, PSS, GSS, FB, HKD, ORSS, SEDS, EDS, SEDI, F1, MCC, BA, NPV, Jaccard, Gain, Lift |
 | **Spatial** | FSS |
-| **Probabilistic** | BSS, RPSS |
+| **Probabilistic** | BSS and SBS (the model input is a probability from 0 to 1), RPSS (simplified: turns the model into yes/no) |
 | **Distributional** | MKLDIV, JSDIV, Hellinger, Wasserstein, TV, Chi-Square, Intersection, Bhattacharyya, Chernoff, Rényi, Tsallis |
 | **Mean** | Harmonic Mean, Geometric Mean, Lehmer Mean |
+
+Some names mean something else in other fields. VIF here is var(model)/var(obs) - 1,
+not the regression VIF; Gain is plain accuracy; NMSE divides by mean(obs)²; GMB is
+model over obs. See the
+[documentation](https://github.com/Debasish-Mahapatra/nwpeval/blob/main/docs/NWPeval_Documentation.md#notes-on-names)
+for details.
 
 ---
 
@@ -206,7 +232,7 @@ import nwpeval
 print(dir(nwpeval))
 ```
 
-For more detailed usage instructions, see [Documentation](docs/NWPeval%20Documentation.md) and [examples](examples).
+For more detailed usage instructions, see the [Documentation](https://github.com/Debasish-Mahapatra/nwpeval/blob/main/docs/NWPeval_Documentation.md) and [examples](https://github.com/Debasish-Mahapatra/nwpeval/tree/main/examples).
 
 
 ## NEXT UPDATE 
@@ -224,7 +250,7 @@ Contributions are welcome! Please open an issue or submit a pull request on the 
 
 ## License
 
-NWPeval is licensed under the [MIT License](LICENSE).
+NWPeval is licensed under the [MIT License](https://github.com/Debasish-Mahapatra/nwpeval/blob/main/LICENSE).
 
 ## Acknowledgments
 

@@ -252,6 +252,24 @@ def test_extremal_scores_are_one_for_a_perfect_forecast(name):
     assert float(getattr(nw, name)(obs, obs, 1)) == pytest.approx(1.0)
 
 
+SPREAD_SCORES = ["r2", "evs", "fv", "sdr", "vif", "smse", "aev", "pcc", "acc"]
+
+
+@pytest.mark.parametrize("name", SPREAD_SCORES)
+def test_scores_needing_obs_spread_are_undefined_for_constant_obs(name):
+    # The computed variance of 0.1, 0.1, 0.1 is a rounding error (1.9e-34), not 0
+    obs, model = one_d([0.1, 0.1, 0.1]), one_d([0.2, 0.0, 0.1])
+    assert np.isnan(float(getattr(nw, name)(obs, model)))
+
+
+@pytest.mark.parametrize("name", SPREAD_SCORES)
+def test_constant_obs_only_blank_their_own_slice(name):
+    obs = xr.DataArray([[0.1, 1.0], [0.1, 2.0], [0.1, 0.5]], dims=("t", "x"))
+    model = obs + xr.DataArray([[0.1, 0.2], [0.0, -0.1], [0.2, 0.3]], dims=("t", "x"))
+    got = getattr(nw, name)(obs, model, dim="t")
+    assert np.isnan(float(got[0])) and np.isfinite(float(got[1]))
+
+
 # --------------------------------------------------------------------------- probabilistic
 @pytest.mark.parametrize("case", CASES)
 def test_bss_matches_reference(case):
@@ -323,6 +341,33 @@ def test_distributional_undefined_when_one_field_has_no_mass(name, dry):
 def test_mkldiv_is_infinite_where_the_model_misses_observed_mass():
     assert float(nw.mkldiv(one_d([1.0, 1.0]), one_d([1.0, 0.0]))) == np.inf
     assert float(nw.mkldiv(one_d([1.0, 0.0]), one_d([1.0, 1.0]))) == pytest.approx(np.log(2))
+
+
+@pytest.mark.parametrize("alpha", [1.5, 2.0, 3.0])
+@pytest.mark.parametrize("name", ["renyi", "tsallis"])
+def test_alpha_divergences_are_infinite_where_the_model_misses_observed_mass(name, alpha):
+    assert float(getattr(nw, name)(one_d([1.0, 1.0]), one_d([1.0, 0.0]), alpha)) == np.inf
+
+
+@pytest.mark.parametrize("name, value", [("renyi", np.log(2)), ("tsallis", 2 - np.sqrt(2))])
+def test_alpha_divergences_below_one_ignore_points_the_model_misses(name, value):
+    got = getattr(nw, name)(one_d([1.0, 1.0]), one_d([1.0, 0.0]), 0.5)
+    assert float(got) == pytest.approx(value)
+
+
+@pytest.mark.parametrize("name, args, value", [
+    ("renyi", (0.5,), np.inf), ("renyi", (2.0,), np.inf), ("tsallis", (0.5,), 2.0),
+    ("tsallis", (2.0,), np.inf), ("chernoff", (0.3,), np.inf), ("bhattacharyya", (), np.inf),
+])
+def test_divergences_when_the_fields_share_no_mass(name, args, value):
+    obs, model = one_d([1.0, 2.0, 0.0, 0.0]), one_d([0.0, 0.0, 3.0, 1.0])
+    assert float(getattr(nw, name)(obs, model, *args)) == value
+
+
+@pytest.mark.parametrize("name", ["renyi", "tsallis"])
+def test_alpha_divergences_reject_negative_alpha(name):
+    with pytest.raises(ValueError):
+        getattr(nw, name)(da(OBS), da(MODEL), -0.5)
 
 
 def test_wasserstein_with_dim_matches_reference_per_slice():
@@ -397,6 +442,32 @@ def test_legacy_class_uses_the_fixed_metrics():
     assert_close(stats.compute_pod(THRESHOLD), float(nw.pod(da(o), da(m), THRESHOLD)))
 
 
+def test_legacy_compute_metrics_without_thresholds_uses_defaults():
+    o, m = da(OBS), da(MODEL)
+    with pytest.warns(DeprecationWarning):
+        stats = nw.NWP_Stats(o, m)
+    got = stats.compute_metrics(["POD", "FSS"])
+    assert_close(got["POD"], float(nw.pod(o, m, 0.5)))
+    assert_close(got["FSS"], float(nw.fss(o, m, 0.5, 3)))
+
+
+def test_legacy_compute_metrics_rejects_unknown_names():
+    with pytest.warns(DeprecationWarning):
+        stats = nw.NWP_Stats(da(OBS), da(MODEL))
+    with pytest.raises(ValueError, match="R²"):
+        stats.compute_metrics(["MAE", "R²"])
+
+
+def test_legacy_hkd_works_with_or_without_the_dash():
+    o, m = da(OBS), da(MODEL)
+    with pytest.warns(DeprecationWarning):
+        stats = nw.NWP_Stats(o, m)
+    got = stats.compute_metrics(["HKD", "H-KD"], thresholds={"HKD": THRESHOLD, "H-KD": THRESHOLD})
+    want = float(nw.hkd(o, m, THRESHOLD))
+    assert_close(got["HKD"], want)
+    assert_close(got["H-KD"], want)
+
+
 # --------------------------------------------------------------------------- FSS
 def fss_brute_force(obs, model, threshold, size):
     """Loop-based FSS: fractions over valid neighbours, every valid point scored."""
@@ -457,3 +528,26 @@ def test_fss_undefined_without_events():
 def test_fss_rejects_non_positive_neighbourhood():
     with pytest.raises(ValueError):
         nw.fss(da(OBS), da(MODEL), THRESHOLD, 0)
+
+
+def test_fss_finds_latitude_longitude_whatever_the_order():
+    v = np.random.default_rng(8).gamma(1.0, 1.0, (12, 10, 6))
+    obs = xr.DataArray(v, dims=("latitude", "longitude", "time"))
+    model = xr.DataArray(np.roll(v, 2, axis=0), dims=obs.dims)
+    explicit = float(nw.fss(obs, model, 1.0, 5, spatial_dims=["latitude", "longitude"]))
+    smoothed_in_time = float(nw.fss(obs, model, 1.0, 5, spatial_dims=["longitude", "time"]))
+    assert smoothed_in_time != pytest.approx(explicit)
+    assert_close(nw.fss(obs, model, 1.0, 5), explicit)
+
+
+def test_fss_asks_for_spatial_dims_it_cannot_recognise():
+    field = xr.DataArray(np.ones((3, 4, 5)), dims=("a", "b", "c"))
+    with pytest.raises(ValueError, match="spatial_dims"):
+        nw.fss(field, field, 1.0, 3)
+
+
+def test_fss_uses_both_dims_of_a_2d_field():
+    v = np.random.default_rng(9).gamma(1.0, 1.0, (10, 12))
+    obs, model = xr.DataArray(v, dims=("row", "col")), xr.DataArray(v * 1.3, dims=("row", "col"))
+    explicit = float(nw.fss(obs, model, 1.0, 3, spatial_dims=["row", "col"]))
+    assert_close(nw.fss(obs, model, 1.0, 3), explicit)

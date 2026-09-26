@@ -1,5 +1,56 @@
 # Changelog
 
+## Version 1.6.4 (2026-09-26)
+
+### Bug fixes
+- Renyi and Tsallis replaced zeros in the model by the smallest float. For
+  alpha > 1, where the model had no mass at a point with observed mass, they
+  gave a large finite number (Renyi 706, Tsallis 4.7e153 at alpha = 1.5)
+  instead of +inf. They now use the exact limits. Renyi, Chernoff and
+  Bhattacharyya are +inf (was NaN) when the two fields share no mass. Renyi
+  and Tsallis now reject alpha < 0.
+- R2, EVS, FV, SDR, VIF, SMSE and AEV returned huge numbers (R2 = -3.5e31)
+  instead of NaN when the observations were constant at a value such as 0.1:
+  rounding makes the computed variance tiny but not zero. PCC and ACC
+  (without a climatology) returned about 1e-16 instead of NaN. Constant
+  observations are now found from the values themselves.
+- FSS without `spatial_dims` used the last two dimensions when it found
+  neither lat/lon nor x/y, so data ordered (latitude, longitude, time) was
+  smoothed over time with no warning. It now also knows latitude/longitude,
+  rlat/rlon and south_north/west_east, and raises a `ValueError` instead of
+  guessing.
+- Legacy `NWP_Stats.compute_metrics` crashed without a `thresholds` dict and
+  silently skipped unknown metric names. Missing thresholds now use the
+  defaults, unknown names raise a `ValueError`, and `'HKD'` works as well as
+  `'H-KD'`.
+
+### Packaging
+- scipy and matplotlib are no longer installed with nwpeval; the package
+  never imported them. The examples need them: `pip install "nwpeval[examples]"`.
+
+### Documentation and examples
+- README: fixed the broken link to the documentation. Links and the FSS
+  heatmap now use full GitHub addresses, so they also work on PyPI.
+- New notes on the two kinds of distributional metrics (Wasserstein compares
+  the spread of values, the other ten compare where the mass is) and on names
+  used differently elsewhere (VIF, Gain, NMSE, GMB). BSS and SBS are listed as
+  probabilistic scores that need a forecast probability; RPSS is marked as a
+  yes/no version. "65 metrics" now says that 3 are aliases.
+- The diurnal-cycle recipe now aligns obs and model with `join='exact'`
+  first: building `xr.Dataset({'obs': obs, 'model': model})` directly padded
+  mismatched grids with NaN instead of raising.
+- Corrected the 1.6.2 notes on the MCC overflow and on which packages the
+  code imports, and the AEV and EDS docstrings of the legacy class.
+- `lightning_data_nc_gen.py` runs on pandas 3, and the lightning examples
+  read the files it writes.
+- The two local data scripts under `tests/` now give BSS and SBS a forecast
+  probability, and pool counts for their diurnal cycle and smoothed time
+  series instead of averaging per-time-step scores.
+
+### Tests
+- Exact limits of the alpha-divergences, constant observations, FSS
+  dimension detection and the legacy dispatcher.
+
 ## Version 1.6.3 (2026-09-22)
 
 ### Bug fixes
@@ -40,8 +91,10 @@ the metrics handle missing data, undefined cases, large samples and grids.
   MCC, BSS and RPSS. PSS returned -POFD when no event was observed; SEDS
   returned 1 when there were no events at all. F1 is now 2TP/(2TP+FP+FN), which is 0 (not NaN) when
   there are no hits but some false alarms or misses.
-- MCC overflowed int64 above about 400,000 points and returned NaN;
-  contingency counts are now floats.
+- MCC overflowed int64 from about 120,000 points (more when events are
+  rare) and then returned NaN or a false 1.0 (a perfect score). The bug was
+  in 1.6.1; MCC values from that version on large grids should be redone.
+  Contingency counts are now floats.
 - SEDI, EDS and SEDS clipped probabilities to 1e-10, giving about -0.82
   instead of the limit -1 when there are no hits. They now return the exact
   limits, and NaN where the limit is path-dependent.
@@ -113,8 +166,8 @@ the metrics handle missing data, undefined cases, large samples and grids.
 - `pygrib` removed from hard dependencies; `cfgrib` and `h5netcdf` moved
   to `extras_require` (`pip install nwpeval[grib]`, `[hdf5]`, `[all]`).
 - `requirements.txt` cleaned up: removed unused `scikit-learn` and
-  `pygrib`; added `scipy`, `pandas`, `matplotlib` that the code actually
-  imports.
+  `pygrib`; added `pandas` (used by `nwpeval.utils`), and `scipy` and
+  `matplotlib`, which only the examples use.
 - Python 3.10-3.12 added to classifiers; 3.6-3.7 removed.
 
 ## Version 1.6.0 (2024-12-05)

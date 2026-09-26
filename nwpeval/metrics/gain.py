@@ -8,6 +8,9 @@ def gain(obs_data, model_data, threshold, dim=None):
 
     Gain = (TP + TN) / N where N = TP + FP + FN + TN.
 
+    This is the fraction correct (accuracy), not the gain of a cumulative
+    gains chart.
+
     An event is ``value >= threshold``. Points missing (NaN) in either input
     are excluded from the contingency table.
 

@@ -12,6 +12,10 @@ def wasserstein(obs_data, model_data, dim=None):
     mean absolute difference of the order statistics:
         W1 = mean(|sort(obs) - sort(model)|).
 
+    It compares the spread of values only: where the values are does not
+    matter. The other distributional metrics (e.g. :func:`hellinger`)
+    compare where the mass is instead.
+
     Points missing (NaN) in either input are dropped from both samples.
 
     Args:

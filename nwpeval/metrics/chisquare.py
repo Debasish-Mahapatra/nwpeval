@@ -16,6 +16,10 @@ def chisquare(obs_data, model_data, dim=None):
     Points missing (NaN) or negative in either input are dropped from both
     distributions, so P and Q always cover the same bins.
 
+    P and Q describe where the mass is (e.g. where the rain falls), so this
+    compares the two fields point by point, not the spread of their values.
+    For that, use :func:`wasserstein` or pass histograms (counts per bin).
+
     Args:
         obs_data (xarray.DataArray): The observed data (must be >= 0).
         model_data (xarray.DataArray): The modeled data (must be >= 0).

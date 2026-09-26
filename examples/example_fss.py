@@ -119,6 +119,9 @@ for q in (90, 95, 99):
 # FSS is a ratio of sums. To split it by hour of day, pool all time steps of each
 # hour and score them together. Do NOT average FSS values of single time steps:
 # that weights a dry hour the same as a stormy one and is not the aggregate score.
+# xr.align(join="exact") raises if the grids differ; building the Dataset
+# directly would silently pad a mismatch with NaN.
+obs, model = xr.align(obs, model, join="exact")
 pairs = xr.Dataset({"obs": obs, "model": model})
 diurnal = pairs.groupby("time.hour").map(lambda g: nw.fss(g.obs, g.model, 1.0, 9))
 print("\nFSS at 1 mm/h, 9 points, by hour of day (first 6 hours):")

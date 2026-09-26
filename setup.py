@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='nwpeval',
-    version='1.6.3',
+    version='1.6.4',
     description='A package for computing metrics for NWP model evaluation',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -16,14 +16,13 @@ setup(
     install_requires=[
         'numpy>=1.20.0',
         'xarray>=0.18.0',
-        'scipy>=1.6.0',
         'pandas>=1.2.0',
-        'matplotlib>=3.3.0',
     ],
     extras_require={
         'grib': ['cfgrib>=0.9.10'],
         'hdf5': ['h5netcdf>=0.13.0'],
-        'all': ['cfgrib>=0.9.10', 'h5netcdf>=0.13.0'],
+        'examples': ['matplotlib>=3.5.0', 'scipy>=1.6.0'],
+        'all': ['cfgrib>=0.9.10', 'h5netcdf>=0.13.0', 'matplotlib>=3.5.0', 'scipy>=1.6.0'],
     },
     classifiers=[
         'Development Status :: 4 - Beta',

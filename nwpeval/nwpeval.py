@@ -68,6 +68,19 @@ from .metrics import (
 )
 
 
+# Every name NWP_Stats.compute_metrics understands ('HKD' is the same as 'H-KD')
+METRIC_NAMES = (
+    'MAE', 'RMSE', 'ACC', 'FSS', 'ETS', 'POD', 'FAR', 'CSI', 'BSS', 'HSS', 'PSS',
+    'SEDS', 'FB', 'GSS', 'H-KD', 'HKD', 'ORSS', 'EDS', 'SEDI', 'RPSS', 'TSE', 'EVS',
+    'NMSE', 'FV', 'PCC', 'SDR', 'VIF', 'MAD', 'IQR', 'R2', 'NAE', 'RMB', 'MAPE',
+    'WMAE', 'ASS', 'RSS', 'QSS', 'NRMSE', 'LMBE', 'SMSE', 'MBD', 'GMB', 'SBS', 'AEV',
+    'CosineSimilarity', 'F1', 'MCC', 'BA', 'NPV', 'Jaccard', 'Gain', 'Lift',
+    'MKLDIV', 'JSDIV', 'Hellinger', 'Wasserstein', 'TV', 'ChiSquare', 'Intersection',
+    'Bhattacharyya', 'HarmonicMean', 'GeometricMean', 'LehmerMean', 'Chernoff',
+    'Renyi', 'Tsallis',
+)
+
+
 def help(cls):
     print("Available methods in the NWP_Stats class:")
     print("-------------------------------------------")
@@ -120,14 +133,27 @@ class NWP_Stats:
         Compute the specified metrics.
         
         Args:
-            metrics (list): A list of metric names to compute.
+            metrics (list): A list of metric names to compute, from
+                ``nwpeval.nwpeval.METRIC_NAMES``.
             dim (str, list, or None): The dimension(s) along which to compute the metrics.
                                       If None, compute the metrics over the entire data.
-            thresholds (dict): A dictionary containing threshold values for specific metrics.
-        
+            thresholds (dict or None): Threshold values and other parameters for
+                specific metrics, keyed by metric name. Missing thresholds default
+                to 0.5 (and the FSS neighbourhood to 3).
+
         Returns:
             dict: A dictionary containing the computed metric values.
+
+        Raises:
+            ValueError: If a metric name is not recognised.
         """
+        if thresholds is None:
+            thresholds = {}
+        unknown = [metric for metric in metrics if metric not in METRIC_NAMES]
+        if unknown:
+            raise ValueError(
+                f"Unknown metric name(s) {unknown}. Valid names: {', '.join(METRIC_NAMES)}"
+            )
         metric_values = {}
         for metric in metrics:
             if metric == 'MAE':
@@ -171,8 +197,8 @@ class NWP_Stats:
             elif metric == 'GSS':
                 threshold = thresholds.get('GSS', 0.5)
                 metric_values[metric] = self.compute_gss(threshold, dim)
-            elif metric == 'H-KD':
-                threshold = thresholds.get('H-KD', 0.5)
+            elif metric in ('H-KD', 'HKD'):
+                threshold = thresholds.get(metric, 0.5)
                 metric_values[metric] = self.compute_hkd(threshold, dim)
             elif metric == 'ORSS':
                 threshold = thresholds.get('ORSS', 0.5)
@@ -428,7 +454,8 @@ class NWP_Stats:
         EDS is designed for rare events and measures the association between
         forecasts and observations using the formula:
         EDS = 2 * log(p) / log(q) - 1
-        where p = (tp + fn) / n (base rate) and q = tp / (tp + fp + fn + tn) (hit rate)
+        where p = (tp + fn) / n is the base rate and q = tp / n is the share of
+        points that are hits (the base rate times the hit rate tp / (tp + fn)).
         
         Args:
             threshold (float): The threshold value for binary classification.
@@ -718,8 +745,9 @@ class NWP_Stats:
         """
         Compute the Adjusted Explained Variance (AEV).
         
-        This is similar to EVS but adjusts for the degrees of freedom.
-        AEV = 1 - (error variance / observation variance)
+        This is EVS adjusted for the degrees of freedom:
+        AEV = 1 - (1 - EVS) * (n - 1) / (n - p - 1)
+        with n valid obs/model pairs and p = 1 predictor.
         
         Args:
             dim (str, list, or None): The dimension(s) along which to compute the AEV.
